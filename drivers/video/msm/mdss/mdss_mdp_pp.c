@@ -22,8 +22,82 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 
+#define CSC_SHIFT_EN ((0 << 19) | (1 << 18) | (1 << 17))
+
 struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
-	[MDSS_MDP_CSC_RGB2RGB] = {
+	[MDSS_MDP_CSC_YUV2RGB_601L] = {
+		0,
+		{
+			0x0254, 0x0000, 0x0331,
+			0x0254, 0xff37, 0xfe60,
+			0x0254, 0x0409, 0x0000,
+		},
+		{ 0xfff0, 0xff80, 0xff80,},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x10, 0xeb, 0x10, 0xf0, 0x10, 0xf0,},
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+	},
+	[MDSS_MDP_CSC_YUV2RGB_601FR] = {
+		0,
+		{
+			0x0200, 0x0000, 0x02ce,
+			0x0200, 0xff50, 0xfe92,
+			0x0200, 0x038b, 0x0000,
+		},
+		{ 0x0000, 0xff80, 0xff80,},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+	},
+	[MDSS_MDP_CSC_YUV2RGB_709L] = {
+		0,
+		{
+			0x0254, 0x0000, 0x0396,
+			0x0254, 0xff93, 0xfeef,
+			0x0254, 0x043e, 0x0000,
+		},
+		{ 0xfff0, 0xff80, 0xff80,},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x10, 0xeb, 0x10, 0xf0, 0x10, 0xf0,},
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+	},
+	[MDSS_MDP_CSC_RGB2YUV_601L] = {
+		0,
+		{
+			0x0083, 0x0102, 0x0032,
+			0xffb4, 0xff6b, 0x00e1,
+			0x00e1, 0xff44, 0xffdb
+		},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0010, 0x0080, 0x0080,},
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+		{ 0x0010, 0x00eb, 0x0010, 0x00f0, 0x0010, 0x00f0,},
+	},
+	[MDSS_MDP_CSC_RGB2YUV_601FR] = {
+		0,
+		{
+			0x0099, 0x012d, 0x003a,
+			0xffaa, 0xff56, 0x0100,
+			0x0100, 0xff2a, 0xffd6
+		},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0000, 0x0080, 0x0080,},
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+	},
+	[MDSS_MDP_CSC_RGB2YUV_709L] = {
+		0,
+		{
+			0x005d, 0x013a, 0x0020,
+			0xffcc, 0xff53, 0x00e1,
+			0x00e1, 0xff34, 0xffeb
+		},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0010, 0x0080, 0x0080,},
+		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+		{ 0x0010, 0x00eb, 0x0010, 0x00f0, 0x0010, 0x00f0,},
+	},
+	[MDSS_MDP_CSC_YUV2YUV] = {
 		0,
 		{
 			0x0200, 0x0000, 0x0000,
@@ -35,31 +109,7 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
 		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
 	},
-	[MDSS_MDP_CSC_YUV2RGB] = {
-		0,
-		{
-			0x0254, 0x0000, 0x0331,
-			0x0254, 0xff37, 0xfe60,
-			0x0254, 0x0409, 0x0000,
-		},
-		{ 0xfff0, 0xff80, 0xff80,},
-		{ 0x0, 0x0, 0x0,},
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
-	},
-	[MDSS_MDP_CSC_RGB2YUV] = {
-		0,
-		{
-			0x0083, 0x0102, 0x0032,
-			0x1fb5, 0x1f6c, 0x00e1,
-			0x00e1, 0x1f45, 0x1fdc
-		},
-		{ 0x0, 0x0, 0x0,},
-		{ 0x0010, 0x0080, 0x0080,},
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
-		{ 0x0010, 0x00eb, 0x0010, 0x00f0, 0x0010, 0x00f0,},
-	},
-	[MDSS_MDP_CSC_YUV2YUV] = {
+	[MDSS_MDP_CSC_RGB2RGB] = {
 		0,
 		{
 			0x0200, 0x0000, 0x0000,
@@ -824,6 +874,34 @@ static void pp_sharp_config(char __iomem *addr,
 
 }
 
+uint8_t pp_vig_csc_pipe_val(struct mdss_mdp_pipe *pipe)
+{
+	uint8_t csc_set = pipe->cur_csc_set;
+
+	if (pipe->cur_csc_set != pipe->new_csc_set) {
+		switch (pipe->new_csc_set) {
+		case MDP_CSC_ITU_R_601:
+			csc_set = MDSS_MDP_CSC_YUV2RGB_601L;
+			pipe->cur_csc_set = pipe->new_csc_set;
+			break;
+		case MDP_CSC_ITU_R_601_FR:
+			csc_set = MDSS_MDP_CSC_YUV2RGB_601FR;
+			pipe->cur_csc_set = pipe->new_csc_set;
+			break;
+		case MDP_CSC_ITU_R_709:
+			csc_set = MDSS_MDP_CSC_YUV2RGB_709L;
+			pipe->cur_csc_set = pipe->new_csc_set;
+			break;
+		default:
+			csc_set = MDSS_MDP_CSC_YUV2RGB_601L;
+			pipe->cur_csc_set = pipe->new_csc_set;
+			break;
+		}
+	}
+
+	return csc_set;
+}
+
 static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
 	u32 opmode = 0;
@@ -852,20 +930,32 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 			 * TODO: Allow pipe to be programmed whenever new CSC is
 			 * applied (i.e. dirty bit)
 			 */
-			mdss_mdp_csc_setup_data(MDSS_MDP_BLOCK_SSPP, pipe->num,
-					1, &pipe->pp_cfg.csc_cfg);
+			if (pipe->play_cnt == 0) {
+				if (pipe->src_fmt->is_yuv) {
+					opmode |= CSC_SHIFT_EN;
+
+					mdss_mdp_csc_setup(
+						MDSS_MDP_BLOCK_SSPP,
+						pipe->num, 1,
+						pp_vig_csc_pipe_val(pipe));
+				} else {
+					mdss_mdp_csc_setup_data(
+						MDSS_MDP_BLOCK_SSPP,
+						pipe->num, 1,
+						&pipe->pp_cfg.csc_cfg);
+				}
+			}
 	} else {
-		if (pipe->src_fmt->is_yuv) {
-			opmode |= (0 << 19) |	/* DST_DATA=RGB */
-				  (1 << 18) |	/* SRC_DATA=YCBCR */
-				  (1 << 17);	/* CSC_1_EN */
-			/*
-			 * TODO: Needs to be part of dirty bit logic: if there
-			 * is a previously configured pipe need to re-configure
-			 * CSC matrix
-			 */
+		if (pipe->src_fmt->is_yuv)
+			opmode |= CSC_SHIFT_EN;
+
+		/*
+		 * TODO: Needs to be part of dirty bit logic: if there is a
+		 * previously configured pipe need to re-configure CSC matrix
+		 */
+		if (pipe->play_cnt == 0) {
 			mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num, 1,
-					   MDSS_MDP_CSC_YUV2RGB);
+					   pp_vig_csc_pipe_val(pipe));
 		}
 	}
 
@@ -2855,28 +2945,52 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 	mutex_lock(&mdss_pp_mutex);
 
 	disp_num = PP_BLOCK(config->block) - MDP_LOGICAL_BLOCK_DISP_0;
+#ifndef VENDOR_EDIT
+//LiQiu@oem.cn add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
 	ret = pp_get_dspp_num(disp_num, &dspp_num);
 	if (ret) {
 		pr_err("%s, no dspp connects to disp %d", __func__, disp_num);
 		goto argc_config_exit;
 	}
-
+#else
+    if (config->flags & MDP_PP_OPS_READ){
+	    ret = pp_get_dspp_num(disp_num, &dspp_num);
+        if (ret) {
+            pr_err("%s, no dspp connects to disp %d", __func__, disp_num);
+            goto argc_config_exit;
+        }
+	}
+#endif
 	switch (PP_LOCAT(config->block)) {
 	case MDSS_PP_LM_CFG:
+#ifdef VENDOR_EDIT
+//LiQiu@oem.cn add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
+	if (config->flags & MDP_PP_OPS_READ)
+#endif
 		argc_addr = mdss_mdp_get_mixer_addr_off(dspp_num) +
 			MDSS_MDP_REG_LM_GC_LUT_BASE;
 		pgc_ptr = &mdss_pp_res->argc_disp_cfg[disp_num];
+#ifndef VENDOR_EDIT
+//LiQiu@oem.cn add qcom patch for setting qdcm bypass mode not seccessful.
 		if (config->flags & MDP_PP_OPS_WRITE)
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 				PP_FLAGS_DIRTY_ARGC;
+#endif
 		break;
 	case MDSS_PP_DSPP_CFG:
+#ifdef VENDOR_EDIT
+//LiQiu@oem.cn add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
+	if (config->flags & MDP_PP_OPS_READ)
+#endif
 		argc_addr = mdss_mdp_get_dspp_addr_off(dspp_num) +
 					MDSS_MDP_REG_DSPP_GC_BASE;
 		pgc_ptr = &mdss_pp_res->pgc_disp_cfg[disp_num];
+#ifndef VENDOR_EDIT
+//LiQiu@oem.cn add qcom patch for setting qdcm bypass mode not seccessful.
 		if (config->flags & MDP_PP_OPS_WRITE)
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 				PP_FLAGS_DIRTY_PGC;
+#endif
 		break;
 	default:
 		goto argc_config_exit;
@@ -2966,6 +3080,15 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 			&mdss_pp_res->gc_lut_g[disp_num][0];
 		pgc_ptr->b_data =
 			&mdss_pp_res->gc_lut_b[disp_num][0];
+#ifdef VENDOR_EDIT
+//LiQiu@oem.cn add qcom patch for setting qdcm bypass mode not seccessful.
+        if (PP_LOCAT(config->block) == MDSS_PP_LM_CFG)
+            mdss_pp_res->pp_disp_flags[disp_num] |=
+                PP_FLAGS_DIRTY_ARGC;
+        else if (PP_LOCAT(config->block) == MDSS_PP_DSPP_CFG)
+            mdss_pp_res->pp_disp_flags[disp_num] |=
+                PP_FLAGS_DIRTY_PGC;
+#endif
 	}
 argc_config_exit:
 	mutex_unlock(&mdss_pp_mutex);

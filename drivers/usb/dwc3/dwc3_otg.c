@@ -18,12 +18,41 @@
 #include <linux/usb/hcd.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/boot_mode.h>
+#include <linux/kthread.h>
 
 #include "core.h"
 #include "dwc3_otg.h"
 #include "io.h"
 #include "xhci.h"
 
+//add by jiachenghui for otg switch, 2015-7-24
+#ifdef VENDOR_EDIT
+#include <linux/proc_fs.h>
+#include <linux/uaccess.h>
+int otg_switch;
+struct dwc3_otg *gdotg;
+
+/* Fix OTG switch cause reboot issue.+*/
+bool running = false;
+int otg_new_state = -1;
+int otg_current_state = -1;
+struct completion complet_xhci;
+struct completion complet_dwc3;
+struct task_struct *task_otg;
+/* Fix OTG switch cause reboot issue.-*/
+
+static inline int oem_test_id(int nr, const volatile unsigned long *addr)
+{
+	if (0 == otg_switch) {
+		//printk("OTG test id is disable!\n");
+		return 1;
+	} else {
+		return test_bit(nr, addr);
+	}
+}
+#endif
+//end add by jiachenghui for otg switch, 2015-7-24
 #define VBUS_REG_CHECK_DELAY	(msecs_to_jiffies(1000))
 #define MAX_INVALID_CHRGR_RETRY 3
 static int max_chgr_retry_count = MAX_INVALID_CHRGR_RETRY;
@@ -515,6 +544,8 @@ int dwc3_set_ext_xceiv(struct usb_otg *otg, struct dwc3_ext_xceiv *ext_xceiv)
 	return 0;
 }
 
+
+
 static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode)
 {
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
@@ -530,6 +561,9 @@ static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode)
 		power_supply_set_scope(dotg->psy, POWER_SUPPLY_SCOPE_DEVICE);
 }
 
+#ifdef VENDOR_EDIT
+extern int get_boot_mode(void);
+#endif
 static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 {
 	static int power_supply_type;
@@ -549,7 +583,12 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 	else if (dotg->charger->chg_type == DWC3_CDP_CHARGER)
 		power_supply_type = POWER_SUPPLY_TYPE_USB_CDP;
 	else if (dotg->charger->chg_type == DWC3_DCP_CHARGER ||
-			dotg->charger->chg_type == DWC3_PROPRIETARY_CHARGER)
+			dotg->charger->chg_type == DWC3_PROPRIETARY_CHARGER
+#ifdef CONFIG_VENDOR_EDIT
+			// add by xcb
+			|| dotg->charger->chg_type == DWC3_FLOATED_CHARGER
+#endif
+			)
 		power_supply_type = POWER_SUPPLY_TYPE_USB_DCP;
 	else
 		power_supply_type = POWER_SUPPLY_TYPE_UNKNOWN;
@@ -563,8 +602,18 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 		return 0;
 
 	dev_info(phy->dev, "Avail curr from USB = %u\n", mA);
-
+#ifdef VENDOR_EDIT
+      if(get_boot_mode()==MSM_BOOT_MODE__RF){
+		/* Disable charging */
+		if (power_supply_set_online(dotg->psy, false))
+			goto psy_error;
+		/* Set max current limit */
+		if (power_supply_set_current_limit(dotg->psy, 0))
+			goto psy_error;	 
+    }else if (dotg->charger->max_power <= 2 && mA > 2) {
+#else
 	if (dotg->charger->max_power <= 2 && mA > 2) {
+#endif
 		/* Enable charging */
 		if (power_supply_set_online(dotg->psy, true))
 			goto psy_error;
@@ -726,7 +775,13 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		}
 
 		/* Switch to A or B-Device according to ID / BSV */
+		//add by jiachenghui for otg switch, 2015-7-24
+		#ifdef VENDOR_EDIT
+		if (!oem_test_id(ID, &dotg->inputs)) {
+		#else
+		//end add by jiachenghui for otg switch, 2015-7-24
 		if (!test_bit(ID, &dotg->inputs)) {
+		#endif//add by jiachenghui for otg switch,2015-7-24
 			dev_dbg(phy->dev, "!id\n");
 			phy->state = OTG_STATE_A_IDLE;
 			work = 1;
@@ -742,7 +797,13 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		break;
 
 	case OTG_STATE_B_IDLE:
+		//add by jiachenghui for otg switch, 2015-7-24
+		#ifdef VENDOR_EDIT
+		if (!oem_test_id(ID, &dotg->inputs)) {
+		#else
+		//end add by jiachenghui for otg switch, 2015-7-24
 		if (!test_bit(ID, &dotg->inputs)) {
+		#endif//add by jiachenghui for otg switch, 2015-7-24
 			dev_dbg(phy->dev, "!id\n");
 			phy->state = OTG_STATE_A_IDLE;
 			work = 1;
@@ -776,6 +837,9 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					work = 1;
 					break;
 				case DWC3_SDP_CHARGER:
+#ifdef CONFIG_VENDOR_EDIT
+					dwc3_otg_set_power(phy, 500);
+#endif
 					dwc3_otg_start_peripheral(&dotg->otg,
 									1);
 					phy->state = OTG_STATE_B_PERIPHERAL;
@@ -796,7 +860,15 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					 */
 					if (dotg->charger_retry_count ==
 						max_chgr_retry_count) {
-						dwc3_otg_set_power(phy, 0);
+						/*
+						 * Modified set_power current
+						 * by Jeff Chen@2015/06/16.
+						 * For non-standard charger,
+						 * treat it as FLOATED CHARGER
+						 * and set max charging current to
+						 * 500mA instead of 0.
+						 */
+						dwc3_otg_set_power(phy, 500);
 						pm_runtime_put_sync(phy->dev);
 						break;
 					}
@@ -835,8 +907,15 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		break;
 
 	case OTG_STATE_B_PERIPHERAL:
+		//add by jiachenghui for otg switch, 2015-7-24
+		#ifdef VENDOR_EDIT
+		if (!test_bit(B_SESS_VLD, &dotg->inputs) ||
+				!oem_test_id(ID, &dotg->inputs)) {
+		#else
+		//end add by jiachenghui for otg switch, 2015-7-24
 		if (!test_bit(B_SESS_VLD, &dotg->inputs) ||
 				!test_bit(ID, &dotg->inputs)) {
+		#endif//add by jiachenghui for otg switch, 2015-7-24
 			dev_dbg(phy->dev, "!id || !bsv\n");
 			dwc3_otg_start_peripheral(&dotg->otg, 0);
 			phy->state = OTG_STATE_B_IDLE;
@@ -848,7 +927,13 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 
 	case OTG_STATE_A_IDLE:
 		/* Switch to A-Device*/
+		//add by jiachenghui for otg switch, 2015-7-24
+		#ifdef VENDOR_EDIT
+		if (oem_test_id(ID, &dotg->inputs)) {
+		#else
+		//end add by jiachenghui for otg switch, 2015-7-24
 		if (test_bit(ID, &dotg->inputs)) {
+		#endif//add by jiachenghui for otg switch, 2015-7-24
 			dev_dbg(phy->dev, "id\n");
 			phy->state = OTG_STATE_B_IDLE;
 			dotg->vbus_retry_count = 0;
@@ -882,12 +967,23 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		break;
 
 	case OTG_STATE_A_HOST:
+		//add by jiachenghui for otg switch, 2015-7-24
+		#ifdef VENDOR_EDIT
+		if (oem_test_id(ID, &dotg->inputs)) {
+		#else
+		//end add by jiachenghui for otg switch, 2015-7-24
 		if (test_bit(ID, &dotg->inputs)) {
+		#endif//add by jiachenghui for otg switch, 2015-7-24
 			dev_dbg(phy->dev, "id\n");
 			dwc3_otg_start_host(&dotg->otg, 0);
 			phy->state = OTG_STATE_B_IDLE;
 			dotg->vbus_retry_count = 0;
 			work = 1;
+		/* Fix OTG switch cause reboot issue.+*/
+		running = false;
+		otg_current_state = 0;
+		complete(&complet_xhci);
+		/* Fix OTG switch cause reboot issue.-*/
 		}
 		break;
 
@@ -900,6 +996,146 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		queue_delayed_work(system_nrt_wq, &dotg->sm_work, delay);
 }
 
+//add by jch for otg swith retest id,2015-7-24
+#ifdef VENDOR_EDIT
+static void oem_ext_event_notify(struct usb_otg *otg,enum dwc3_ext_events event,enum dwc3_id_state id)
+{
+	static bool init;
+	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
+	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
+	struct usb_phy *phy = dotg->otg.phy;
+	int ret = 0;
+
+	/* Flush processing any pending events before handling new ones */
+	if (init)
+		flush_delayed_work(&dotg->sm_work);
+
+	if (event == DWC3_EVENT_PHY_RESUME) {
+		if (!pm_runtime_status_suspended(phy->dev)) {
+			dev_warn(phy->dev, "PHY_RESUME event out of LPM!!!!\n");
+		} else {
+			dev_dbg(phy->dev, "ext PHY_RESUME event received\n");
+			/* ext_xceiver would have taken h/w out of LPM by now */
+			ret = pm_runtime_get(phy->dev);
+			if ((phy->state == OTG_STATE_A_HOST) &&
+							dotg->host_bus_suspend)
+				dotg->host_bus_suspend = 0;
+			if (ret == -EACCES) {
+				/* pm_runtime_get may fail during system
+				   resume with -EACCES error */
+				pm_runtime_disable(phy->dev);
+				pm_runtime_set_active(phy->dev);
+				pm_runtime_enable(phy->dev);
+			} else if (ret < 0) {
+				dev_warn(phy->dev, "pm_runtime_get failed!\n");
+			}
+		}
+	} else if (event == DWC3_EVENT_XCEIV_STATE) {
+		if (pm_runtime_status_suspended(phy->dev)) {
+			dev_warn(phy->dev, "PHY_STATE event in LPM!!!!\n");
+			ret = pm_runtime_get(phy->dev);
+			if (ret < 0)
+				dev_warn(phy->dev, "pm_runtime_get failed!!\n");
+		}
+		if (id == DWC3_ID_FLOAT) {
+			dev_dbg(phy->dev, "XCVR: ID set\n");
+			set_bit(ID, &dotg->inputs);
+		} else {
+			dev_dbg(phy->dev, "XCVR: ID clear\n");
+			clear_bit(ID, &dotg->inputs);
+		}
+
+		if (ext_xceiv->bsv) {
+			dev_dbg(phy->dev, "XCVR: BSV set\n");
+			set_bit(B_SESS_VLD, &dotg->inputs);
+		} else {
+			dev_dbg(phy->dev, "XCVR: BSV clear\n");
+			clear_bit(B_SESS_VLD, &dotg->inputs);
+		}
+
+		if (!init) {
+			init = true;
+			if (!work_busy(&dotg->sm_work.work))
+				queue_delayed_work(system_nrt_wq,
+							&dotg->sm_work, 0);
+
+			complete(&dotg->dwc3_xcvr_vbus_init);
+			dev_dbg(phy->dev, "XCVR: BSV init complete\n");
+			return;
+		}
+
+		queue_delayed_work(system_nrt_wq, &dotg->sm_work, 0);
+	}
+}
+
+
+void enable_otg_event(bool enable )
+{
+	struct dwc3_ext_xceiv *ext_xceiv = gdotg->ext_xceiv;
+	struct usb_phy *otg_xceiv = gdotg->otg.phy;
+	enum dwc3_id_state id;
+	if(!ext_xceiv->id && otg_current_state!= enable){
+		if (enable== true) {
+			id = DWC3_ID_GROUND;
+		} else {
+			id = DWC3_ID_FLOAT;
+		}
+		if (otg_xceiv){
+			otg_current_state = enable;
+			printk("enable_otg_event otg_current_state:%d \n",otg_current_state);
+			oem_ext_event_notify(otg_xceiv->otg, DWC3_EVENT_XCEIV_STATE,id);
+		}
+		else{
+			running = false;
+		}
+	}
+	else{
+		running = false;
+	}
+}
+ static ssize_t  proc_otg_switch_all_read(struct file *f, char __user *buf,size_t count, loff_t *ppos)
+{
+	char values[] = { '0' + otg_switch, '\n' };
+	printk("OTG: the otg switch is:%d\n",otg_switch);
+	return simple_read_from_buffer(buf, count, ppos, values, sizeof(values));
+
+}
+
+static ssize_t  proc_otg_switch_all_write(struct file *f, const char __user *buf, size_t count, loff_t *ppos)
+{
+	char temp[1] = {0};
+
+	if (copy_from_user(temp, buf, 1))
+		return -EFAULT;
+
+	sscanf(temp, "%d", &otg_switch);
+	otg_new_state = otg_switch;
+
+	if (!strncasecmp(&temp[0], "0", 1)) {
+	    printk("OTG: disable!\n");
+		if(!running){
+			running = true;
+			enable_otg_event(false);
+		}
+	}else if (!strncasecmp(&temp[0], "1", 1)){
+		printk("OTG: enable!\n");
+		if(!running){
+			running = true;
+			enable_otg_event(true);
+		}
+	}
+
+	printk("OTG:write the otg switch to :%d, running:%d, otg_new_state:%d, otg_current_state:%d\n",otg_switch,running,otg_new_state, otg_current_state);
+	return count;
+}
+
+static const struct file_operations otg_knob_fops = {
+	.open	= simple_open,
+	.read	= proc_otg_switch_all_read,
+	.write	= proc_otg_switch_all_write,
+};
+#endif
+//end add by jch for otg swith retest id,2015-6-5
 
 /**
  * dwc3_otg_reset - reset dwc3 otg registers.
@@ -944,6 +1180,29 @@ static void dwc3_otg_reset(struct dwc3_otg *dotg)
 				DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT);
 }
 
+/* Fix OTG switch cause reboot issue.+*/
+static int otg_thread(void *arg)
+{
+	printk(KERN_ERR "otg_thread");
+	do {
+		//wait_for_completion(&complet_xhci);
+		wait_for_completion_timeout(&complet_xhci, msecs_to_jiffies(1000));
+		INIT_COMPLETION(complet_xhci);
+		//wait_for_completion(&complet_dwc3);
+		wait_for_completion_timeout(&complet_dwc3, msecs_to_jiffies(1000));
+		INIT_COMPLETION(complet_dwc3);
+		if(otg_new_state != -1 && otg_current_state != otg_new_state){
+			printk(KERN_ERR "otg_new_state:%d otg_current_state:%d \n", otg_new_state,otg_current_state);
+			running = true;
+			otg_switch = otg_new_state;
+			enable_otg_event(otg_new_state);
+		}
+	} while (1);
+
+	return 0;
+}
+/* Fix OTG switch cause reboot issue.-*/
+
 /**
  * dwc3_otg_init - Initializes otg related registers
  * @dwc: Pointer to out controller context structure
@@ -955,8 +1214,27 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	u32	reg;
 	int ret = 0;
 	struct dwc3_otg *dotg;
-
+//add by jiachenghui for otg switch, 2015-7-24
+#ifdef VENDOR_EDIT
+	static struct proc_dir_entry *proc_otg_dir = NULL;
+	otg_switch = 0;
+	proc_otg_dir = proc_mkdir("otg_config", NULL);
+	if (!proc_otg_dir) {
+		printk("OTG:%s: unable to create otg_config directory\n", __func__);
+	}
+	if (!proc_create("otg_switch", ( S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH ), proc_otg_dir,&otg_knob_fops)){
+		printk(KERN_ERR "OTG: creat otg_switch  fail!\n");
+	}
+#endif
+//end add by jiachenghui for otg switch, 2015-7-24
 	dev_dbg(dwc->dev, "dwc3_otg_init\n");
+
+	/* Fix OTG switch cause reboot issue.+*/
+	init_completion(&complet_xhci);
+	init_completion(&complet_dwc3);
+	task_otg = kthread_create(otg_thread, NULL, "otg_thread");
+	wake_up_process(task_otg);
+	/* Fix OTG switch cause reboot issue.-*/
 
 	/*
 	 * GHWPARAMS6[10] bit is SRPSupport.
@@ -1031,7 +1309,11 @@ int dwc3_otg_init(struct dwc3 *dwc)
 				dotg->irq, ret);
 		goto err3;
 	}
-
+//add by jch for otg swith retest id,2015-6-5
+#ifdef VENDOR_EDIT
+      gdotg = dotg;//add by jch for otg swith retest id,2015-6-5
+#endif
+//end add by jch for otg swith retest id,2015-6-5
 	pm_runtime_get(dwc->dev);
 
 	return 0;
@@ -1070,4 +1352,5 @@ void dwc3_otg_exit(struct dwc3 *dwc)
 		kfree(dotg);
 		dwc->dotg = NULL;
 	}
+	kthread_stop(task_otg);
 }

@@ -18,7 +18,7 @@
 #include <linux/hrtimer.h>
 #include <linux/of_device.h>
 #include <linux/spmi.h>
-
+#include <linux/delay.h>
 #include <linux/qpnp/vibrator.h>
 #include "../../staging/android/timed_output.h"
 
@@ -49,6 +49,15 @@ struct qpnp_vib {
 	int timeout;
 	struct mutex lock;
 };
+
+
+/*shankai  2015-07-7 add begin for optimizing the response speed of the
+vibrator*/
+#ifdef VENDOR_EDIT
+static struct workqueue_struct *vibqueue;
+#endif //VENDOR_EDIT
+/*shankai  2015-07-7 add end for optimizing the response speed of the
+vibrator*/
 
 static struct qpnp_vib *vib_dev;
 
@@ -167,6 +176,8 @@ static void qpnp_vib_enable(struct timed_output_dev *dev, int value)
 	if (value == 0)
 		vib->state = 0;
 	else {
+		if(value< 30)
+			value+=10;
 		value = (value > vib->timeout ?
 				 vib->timeout : value);
 		vib->state = 1;
@@ -174,8 +185,14 @@ static void qpnp_vib_enable(struct timed_output_dev *dev, int value)
 			      ktime_set(value / 1000, (value % 1000) * 1000000),
 			      HRTIMER_MODE_REL);
 	}
+	#ifndef VENDOR_EDIT
 	mutex_unlock(&vib->lock);
 	schedule_work(&vib->work);
+	#else //#ifdef VENDOR_EDIT
+	queue_work(vibqueue,&vib->work);
+	msleep(1);
+	mutex_unlock(&vib->lock);
+	#endif //VENDOR_EDIT
 }
 
 static void qpnp_vib_update(struct work_struct *work)
@@ -203,8 +220,14 @@ static enum hrtimer_restart qpnp_vib_timer_func(struct hrtimer *timer)
 							 vib_timer);
 
 	vib->state = 0;
-	schedule_work(&vib->work);
-
+	/*shankai@bsp.2015-07-16 modify begin for optimizing the response speed of the vibrator*/
+	#ifndef VENDOR_EDIT
+		schedule_work(&vib->work);
+	#else
+	//#ifdef VENDOR_EDIT
+		queue_work(vibqueue,&vib->work);
+	#endif //VENDOR_EDIT
+	/*shankai@bsp.2015-07-16 modify end for optimizing the response speed of the vibrator*/
 	return HRTIMER_NORESTART;
 }
 
@@ -279,8 +302,11 @@ static int __devinit qpnp_vibrator_probe(struct spmi_device *spmi)
 	vib->reg_en_ctl = val;
 
 	mutex_init(&vib->lock);
-	INIT_WORK(&vib->work, qpnp_vib_update);
 
+	#ifdef VENDOR_EDIT
+	vibqueue = create_singlethread_workqueue("vibthread");
+	#endif //VENDOR_EDIT
+	INIT_WORK(&vib->work, qpnp_vib_update);
 	hrtimer_init(&vib->vib_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	vib->vib_timer.function = qpnp_vib_timer_func;
 

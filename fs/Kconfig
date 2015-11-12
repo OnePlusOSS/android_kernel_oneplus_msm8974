@@ -280,4 +280,8 @@ endif # NETWORK_FILESYSTEMS
 source "fs/nls/Kconfig"
 source "fs/dlm/Kconfig"
 
+#ifdef VENDOR_EDIT
+#Zhilong.Zhang@OnlineRd.Driver, 2014/02/26, Add for exfat filesystem
+source "fs/exfat/Kconfig"
+#endif /*VENDOR_EDIT*/
 endmenu

@@ -372,6 +372,84 @@ dolby_dap_send_param_return:
 	return rc;
 }
 
+#ifdef VENDOR_EDIT
+//#lifei@OnePlus.MultiMediaService, 2015/09/25 add set/get dsp interface
+int adm_set_dirac_enable_params(int port_id, uint32_t module_id, uint32_t param_id, int enable)
+{
+	struct adm_cmd_set_pp_params_dirac_v5 *adm_params = NULL;
+	int ret = 0, sz = 0;
+	int index;
+
+    pr_debug("DIRAC - %s", __func__);
+
+    sz = sizeof(struct adm_cmd_set_pp_params_dirac_v5); 
+    adm_params = kzalloc(sz, GFP_KERNEL);
+    if (!adm_params) {
+        pr_err("%s, adm params memory alloc failed\n",
+		      __func__);
+        return -ENOMEM;
+    }
+	adm_params->payload_size = sizeof(uint32_t) + sizeof(struct adm_param_data_v5);
+    //adm_params->payload_size = sizeof(struct adm_cmd_set_pp_params_dirac_v5);
+    adm_params->params.param_id = param_id;
+    adm_params->params.param_size = sizeof(uint32_t);
+    adm_params->enable = enable;
+    pr_debug("DIRAC - %s: Enable params  = %d\n",
+				__func__, enable);
+
+	adm_params->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	adm_params->hdr.pkt_size = sz;
+	adm_params->hdr.src_svc = APR_SVC_ADM;
+	adm_params->hdr.src_domain = APR_DOMAIN_APPS;
+	adm_params->hdr.src_port = port_id;
+	adm_params->hdr.dest_svc = APR_SVC_ADM;
+	adm_params->hdr.dest_domain = APR_DOMAIN_ADSP;
+	index = afe_get_port_index(port_id);
+	if (index < 0 || index >= AFE_MAX_PORTS) {
+		pr_err("%s: invalid port idx %d portid %#x\n",
+				__func__, index, port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	adm_params->hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
+	adm_params->hdr.token = port_id;
+	adm_params->hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
+	adm_params->payload_addr_lsw = 0;
+	adm_params->payload_addr_msw = 0;
+	adm_params->mem_map_handle = 0;
+
+	adm_params->params.module_id = module_id;
+	adm_params->params.reserved = 0;
+
+	pr_debug("DIRAC - %s: Command was sent now check Q6 - port id = %d, size %d, module id %x, param id %x.\n",
+			__func__, adm_params->hdr.dest_port,
+			adm_params->payload_size, adm_params->params.module_id,
+			adm_params->params.param_id);
+
+	ret = apr_send_pkt(this_adm.apr, (uint32_t *)adm_params);
+	if (ret < 0) {
+		pr_err("DIRAC - %s: ADM enable for port %d failed\n", __func__,
+			port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	/* Wait for the callback with copp id */
+	ret = wait_event_timeout(this_adm.wait[index], 1,
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: DIRAC set params timed out port = %d\n",
+			__func__, port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	kfree(adm_params);
+	return ret;
+}
+#endif/*VENDOR_EDIT*/
+
 int adm_get_params(int port_id, uint32_t module_id, uint32_t param_id,
 		uint32_t params_length, char *params)
 {

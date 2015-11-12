@@ -34,6 +34,11 @@
 #include <linux/thermal.h>
 #include <linux/platform_device.h>
 
+#ifdef CONFIG_VENDOR_EDIT
+// add by xcb
+#include <linux/boot_mode.h>
+#endif
+
 /* QPNP VADC TM register definition */
 #define QPNP_REVISION3					0x2
 #define QPNP_PERPH_SUBTYPE				0x5
@@ -1429,6 +1434,7 @@ static int qpnp_adc_tm_read_status(struct qpnp_adc_tm_chip *chip)
 		}
 
 		btm_chan_num = chip->sensor[sensor_num].btm_channel_num;
+
 		pr_debug("high:sen:%d, hs:0x%x, ls:0x%x, meas_en:0x%x\n",
 			sensor_num, adc_tm_high_enable, adc_tm_low_enable,
 			qpnp_adc_tm_meas_en);
@@ -1486,6 +1492,7 @@ static int qpnp_adc_tm_read_status(struct qpnp_adc_tm_chip *chip)
 		}
 
 		btm_chan_num = chip->sensor[sensor_num].btm_channel_num;
+
 		pr_debug("low:sen:%d, hs:0x%x, ls:0x%x, meas_en:0x%x\n",
 			sensor_num, adc_tm_high_enable, adc_tm_low_enable,
 			qpnp_adc_tm_meas_en);
@@ -1995,7 +2002,12 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 		dev_err(&spmi->dev, "failed to request adc irq\n");
 		goto fail;
 	} else {
-		enable_irq_wake(chip->adc->adc_high_thr_irq);
+#ifdef CONFIG_VENDOR_EDIT
+		if (get_boot_mode() != MSM_BOOT_MODE__FACTORY)
+		{
+			enable_irq_wake(chip->adc->adc_high_thr_irq);
+		}
+#endif
 	}
 
 	rc = devm_request_irq(&spmi->dev, chip->adc->adc_low_thr_irq,
@@ -2005,7 +2017,13 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 		dev_err(&spmi->dev, "failed to request adc irq\n");
 		goto fail;
 	} else {
-		enable_irq_wake(chip->adc->adc_low_thr_irq);
+#ifdef CONFIG_VENDOR_EDIT
+		if (get_boot_mode() != MSM_BOOT_MODE__FACTORY)
+		{
+			enable_irq_wake(chip->adc->adc_low_thr_irq);
+		}
+#endif
+
 	}
 
 	dev_set_drvdata(&spmi->dev, chip);

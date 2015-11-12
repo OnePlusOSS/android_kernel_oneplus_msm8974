@@ -67,3 +67,11 @@ obj-$(CONFIG_BMP18X_I2C)		+= bmp18x-i2c.o
 obj-$(CONFIG_SENSORS_MMA8X5X)	  	+= mma8x5x.o
 obj-$(CONFIG_SENSORS_STK3X1X)		+= stk3x1x.o
 obj-$(CONFIG_SENSORS_CAPELLA_CM36283)	+= cm36283.o
+#ranfei add for fpc1021
+obj-$(CONFIG_BTP_FPC1021)  += fpc1020_main.o fpc1020_capture.o fpc1020_common.o fpc1020_regulator.o fpc1020_nav.o
+#add end
+#ranfei add for MXM1120
+obj-$(CONFIG_HALL_MXM1120)  += m1120.o
+#add end
+#VENDOR_EDIT shankai add for tree state keys
+obj-$(CONFIG_TRI_STATE_KEY) += tri_state_key.o

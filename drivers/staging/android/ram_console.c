@@ -74,11 +74,76 @@ static int __devinit ram_console_probe(struct platform_device *pdev)
 	return 0;
 }
 
+//add by jiachenghui for boot time optimize 2015-9-16
+#ifdef VENDOR_EDIT
+static int probe_ret;
+struct ram_console_data{
+	struct delayed_work work;
+	struct workqueue_struct *workqueue;
+	struct platform_device *pdev;
+};
+static struct ram_console_data optimize_data;
+static void __devinit  ram_console_probe_func(struct work_struct *w)
+{
+	struct platform_device *pdev = optimize_data.pdev;
+	printk("boot_time: after optimize call [ram_console_probe] on cpu %d\n",smp_processor_id());
+	probe_ret = ram_console_probe(pdev);
+	printk("boot_time: ram_console_probe return %d\n", probe_ret);
+}
+
+static int __devinit oem_ram_console_probe(struct platform_device *pdev)
+{
+	int i;
+	int offline_times = 0;//add by jiachenghui for only one cpu online,2015-9-28
+	optimize_data.pdev = pdev;
+	optimize_data.workqueue = create_workqueue("ram_console_optimize");
+	INIT_DELAYED_WORK(&(optimize_data.work), ram_console_probe_func);
+	printk("boot_time: before optimize [ram_console_probe]  on cpu %d\n",smp_processor_id());
+	for (i = 0; i <= 3; i++)
+       {
+             printk("boot_time: [ram_console_probe] CPU%d is %s\n",i,cpu_is_offline(i)?"offline":"online");
+	      if (cpu_is_offline(i) || i == smp_processor_id())
+             {
+                   offline_times++;//add by jiachenghui for only one cpu online,2015-9-28
+                   continue;
+             }
+	      queue_delayed_work_on(i,optimize_data.workqueue,&(optimize_data.work),msecs_to_jiffies(300));
+	      break;
+	}
+	//add by jiachenghui for only one cpu online,2015-9-28
+	if(offline_times == 4)
+		queue_delayed_work_on(smp_processor_id(),optimize_data.workqueue,&(optimize_data.work),msecs_to_jiffies(300));
+       //add by jiachenghui for only one cpu online,2015-9-28
+	return probe_ret;
+}
+#endif //VENDOR_EDIT
+//add by jiachenghui for boot time optimize 2015-9-16
+
+
+#ifdef CONFIG_VENDOR_EDIT_OP_LASTKMSG
+/* add by yangrujin@bsp 2015/9/2, support last_kmsg feature */
+static const struct of_device_id msm_ram_console_match[] = {
+	{.compatible = "ram-console"},
+	{}
+};
+#endif
+
 static struct platform_driver ram_console_driver = {
 	.driver		= {
 		.name	= "ram_console",
+#ifdef CONFIG_VENDOR_EDIT_OP_LASTKMSG
+/* add by yangrujin@bsp 2015/9/2, support last_kmsg feature */
+		.owner = THIS_MODULE,
+		.of_match_table = msm_ram_console_match,
+#endif
 	},
+//add by jiachenghui for boot time optimize 2015-9-16
+#ifdef VENDOR_EDIT
+	.probe = oem_ram_console_probe,
+#else
+//end add by jiachenghui for boot time optimize 2015-9-16
 	.probe = ram_console_probe,
+#endif //add by jiachenghui for boot time optimize 2015-9-16
 };
 
 static int __init ram_console_module_init(void)
@@ -158,9 +223,10 @@ static int __init ram_console_late_init(void)
 	if (!prz)
 		return 0;
 
+
 	if (persistent_ram_old_size(prz) == 0)
 		return 0;
-
+	pr_err("ram_console_late_init() create proc last_kmsg \r\n");
 	entry = create_proc_entry("last_kmsg", S_IFREG | S_IRUGO, NULL);
 	if (!entry) {
 		printk(KERN_ERR "ram_console: failed to create proc entry\n");

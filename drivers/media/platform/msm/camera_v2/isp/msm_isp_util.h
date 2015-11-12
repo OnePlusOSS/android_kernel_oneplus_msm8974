@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,18 +23,6 @@
 #endif
 
 #define ALT_VECTOR_IDX(x) {x = 3 - x; }
-struct msm_isp_bandwidth_info {
-	uint32_t active;
-	uint64_t ab;
-	uint64_t ib;
-};
-
-enum msm_isp_hw_client {
-	ISP_VFE0,
-	ISP_VFE1,
-	ISP_CPP,
-	MAX_ISP_CLIENT,
-};
 
 struct msm_isp_bandwidth_mgr {
 	uint32_t bus_client;
@@ -45,10 +33,20 @@ struct msm_isp_bandwidth_mgr {
 
 uint32_t msm_isp_get_framedrop_period(
 	enum msm_vfe_frame_skip_pattern frame_skip_pattern);
+void msm_isp_reset_burst_count_and_frame_drop(
+	struct vfe_device *vfe_dev, struct msm_vfe_axi_stream *stream_info);
 
 int msm_isp_init_bandwidth_mgr(enum msm_isp_hw_client client);
 int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
 	uint64_t ab, uint64_t ib);
+void msm_isp_util_get_bandwidth_stats(struct vfe_device *vfe_dev,
+				      struct msm_isp_statistics *stats);
+void msm_isp_util_update_last_overflow_ab_ib(struct vfe_device *vfe_dev);
+void msm_isp_util_update_clk_rate(long clock_rate);
+void msm_isp_update_req_history(uint32_t client, uint64_t ab,
+				uint64_t ib,
+				struct msm_isp_bandwidth_info *client_info,
+				unsigned long long ts);
 void msm_isp_deinit_bandwidth_mgr(enum msm_isp_hw_client client);
 
 int msm_isp_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
@@ -72,4 +70,9 @@ void msm_isp_process_error_info(struct vfe_device *vfe_dev);
 int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 long msm_isp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg);
+void msm_isp_util_update_clk_rate(long clock_rate);
+void msm_isp_fetch_engine_done_notify(struct vfe_device *vfe_dev,
+	struct msm_vfe_fetch_engine_info *fetch_engine_info);
+void msm_camera_io_dump_2(void __iomem *addr, int size);
+void msm_isp_print_fourcc_error(const char *origin, uint32_t fourcc_format);
 #endif /* __MSM_ISP_UTIL_H__ */

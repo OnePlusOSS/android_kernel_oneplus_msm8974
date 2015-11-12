@@ -65,6 +65,12 @@ void __weak panic_smp_self_stop(void)
 		cpu_relax();
 }
 
+#ifdef CONFIG_VENDOR_EDIT
+/* OPPO 2012-10-11 chendx Add begin for debug tools */
+extern bool is_otrace_on(void);
+/* OPPO 2012-10-11 chendx Add end */
+#endif //CONFIG_VENDOR_EDIT
+
 /**
  *	panic - halt the system
  *	@fmt: The text string to print
@@ -89,6 +95,25 @@ void panic(const char *fmt, ...)
 	 * after the panic_lock is acquired) from invoking panic again.
 	 */
 	local_irq_disable();
+
+#ifdef CONFIG_VENDOR_EDIT
+#ifdef CONFIG_OEM_DEBUG_ASSERT
+/* OPPO 2012-10-11 chendx Add begin for debug tools */
+        pr_info("kernel panic because of %s\n", fmt);
+        
+        if(!is_otrace_on()) {
+            if (strcmp(fmt, "modem") == 0){
+                    kernel_restart("modem");
+                }else if (strcmp(fmt, "android") == 0){
+                    kernel_restart("android");
+                }else{
+                    kernel_restart("kernel");
+                }
+        }
+/* OPPO 2012-10-11 chendx Add end */
+#endif /* CONFIG_OEM_DEBUG_ASSERT */
+#endif  //CONFIG_VENDOR_EDIT
+
 
 	/*
 	 * It's possible to come here directly from a panic-assertion and

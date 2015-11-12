@@ -26,6 +26,7 @@
 #include <linux/workqueue.h>
 #include <linux/bif/driver.h>
 #include <linux/qpnp/qpnp-adc.h>
+#include <linux/boot_mode.h>
 
 enum qpnp_bsi_irq {
 	QPNP_BSI_IRQ_ERR,
@@ -1604,6 +1605,7 @@ static int __devinit qpnp_bsi_init_irqs(struct qpnp_bsi_chip *chip,
 		goto set_unwakeable_irq_rx;
 	}
 
+    if (get_boot_mode() != MSM_BOOT_MODE__FACTORY){
 	rc = devm_request_threaded_irq(dev, chip->batt_present_irq, NULL,
 		qpnp_bsi_batt_present_isr,
 		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_SHARED
@@ -1622,6 +1624,7 @@ static int __devinit qpnp_bsi_init_irqs(struct qpnp_bsi_chip *chip,
 		goto set_unwakeable_irq_tx;
 	}
 
+    }
 	return rc;
 
 set_unwakeable_irq_tx:
@@ -1638,7 +1641,8 @@ static void qpnp_bsi_cleanup_irqs(struct qpnp_bsi_chip *chip)
 	irq_set_irq_wake(chip->irq[QPNP_BSI_IRQ_ERR], 0);
 	irq_set_irq_wake(chip->irq[QPNP_BSI_IRQ_RX], 0);
 	irq_set_irq_wake(chip->irq[QPNP_BSI_IRQ_TX], 0);
-	irq_set_irq_wake(chip->batt_present_irq, 0);
+        if (get_boot_mode() != MSM_BOOT_MODE__FACTORY)
+        	irq_set_irq_wake(chip->batt_present_irq, 0);
 }
 
 static int __devinit qpnp_bsi_probe(struct spmi_device *spmi)

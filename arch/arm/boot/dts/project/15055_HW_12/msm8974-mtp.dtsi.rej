@@ -1,0 +1,29 @@
+--- arch/arm/boot/dts/project/15055_HW_11/msm8974-mtp.dtsi
++++ arch/arm/boot/dts/project/15055_HW_11/msm8974-mtp.dtsi
+@@ -102,20 +102,19 @@
+ 			pinctrl-names = "default";
+ 			pinctrl-0 = <&ts_int_active>;   
+ 			synaptics,irq-gpio = <&msm_gpio 61 0x2008>;
+-			/*synaptics,id1-gpio = <&msm_gpio 12 0x00>;
+-			synaptics,id2-gpio = <&msm_gpio 66 0x00>;
+-			synaptics,id3-gpio = <&msm_gpio 119 0x00>;*/
+-			//synaptics,reset-gpio = <&msm_gpio 69 0x00>;
+ 			synaptics,reset-gpio = <&msm_gpio 60 0x00>;
+-			synaptics,enable2v8-gpio = <&pm8941_gpios 32 0x00>;      
++
++			
+ 			synaptics,max-num-support = <10>;
+ 			synaptics,max-x-point = <10>;
+ 			synaptics,max-y-point = <1745>;
+ 			synaptics,button-map= <200 200 2021>;//width-height-y.position
+ 			synaptics,tx-rx-num = <19 29>;
+ 			synaptics,display-coords = <1080 1920>;
+-			/*vdd_2v8-supply = <&pm8226_l23>;*/
+-			vcc_i2c_1v8-supply = <&pm8916_l5>;
++		//	vcc_i2c_1v8-supply = <&pm8916_l5>;
++			vcc_i2c_1v8-supply = <&pm8941_s3>;//shankai modfify
++		//synaptics,enable2v8-gpio = <&pm8941_gpios 32 0x00>;      //
++			avdd_3v0-supply = <&pm8941_l22>;
+ 			synaptics,i2c-pull-up;
+ 			synaptics,power-down;
+ 			synaptics,disable-gpios;

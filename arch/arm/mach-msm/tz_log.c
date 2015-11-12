@@ -742,6 +742,52 @@ err:
 }
 
 
+//add by jiachenghui for boot time optimize 2015-9-16
+#ifdef VENDOR_EDIT
+static int probe_ret;
+struct tz_log_probe_data{
+	struct delayed_work work;
+	struct workqueue_struct *workqueue;
+	struct platform_device *pdev;
+};
+static struct tz_log_probe_data optimize_data;
+static void __devinit  tz_log_probe_func(struct work_struct *w)
+{
+	struct platform_device *pdev = optimize_data.pdev;
+	printk("boot_time: after optimize call [tz_log_probe] on cpu %d\n",smp_processor_id());
+	probe_ret = tz_log_probe(pdev);
+	printk("boot_time: tz_log_probe return %d\n", probe_ret);
+}
+
+static int __devinit oem_tz_log_probe(struct platform_device *pdev)
+{
+	int i;
+	int offline_times = 0;//add by jiachenghui for only one cpu online,2015-9-28
+	optimize_data.pdev = pdev;
+	optimize_data.workqueue = create_workqueue("tz_log_optimize");
+	INIT_DELAYED_WORK(&(optimize_data.work), tz_log_probe_func);
+	printk("boot_time: before optimize [tz_log_probe]  on cpu %d\n",smp_processor_id());
+	for (i = 0; i <= 3; i++)
+       {
+             printk("boot_time: [tz_log_probe] CPU%d is %s\n",i,cpu_is_offline(i)?"offline":"online");
+	      if (cpu_is_offline(i) || i == smp_processor_id())
+             {
+                   offline_times++;//add by jiachenghui for only one cpu online,2015-9-28
+                   continue;
+             }
+	      queue_delayed_work_on(i,optimize_data.workqueue,&(optimize_data.work),msecs_to_jiffies(300));
+	      break;
+	}
+	//add by jiachenghui for only one cpu online,2015-9-28
+	if(offline_times == 4)
+		queue_delayed_work_on(smp_processor_id(),optimize_data.workqueue,&(optimize_data.work),msecs_to_jiffies(300));
+       //add by jiachenghui for only one cpu online,2015-9-28
+	return probe_ret;
+}
+#endif //VENDOR_EDIT
+//add by jiachenghui for boot time optimize 2015-9-16
+
+
 static int __devexit tz_log_remove(struct platform_device *pdev)
 {
 	kzfree(tzdbg.diag_buf);
@@ -757,7 +803,13 @@ static struct of_device_id tzlog_match[] = {
 };
 
 static struct platform_driver tz_log_driver = {
+//add by jiachenghui for boot time optimize 2015-9-16
+#ifdef VENDOR_EDIT
+	.probe		= oem_tz_log_probe,
+#else
+//end add by jiachenghui for boot time optimize 2015-9-16
 	.probe		= tz_log_probe,
+#endif //add by jiachenghui for boot time optimize 2015-9-16
 	.remove		= __devexit_p(tz_log_remove),
 	.driver		= {
 		.name = "tz_log",

@@ -57,7 +57,17 @@ static ssize_t led_brightness_store(struct device *dev,
 	if (count == size) {
 		ret = count;
 
+#ifdef VENDOR_EDIT
+//chenneng/Neil Chen@camera, 20150810, fix_torch_can_not_work_after_operater_debug_node
+/* after the led node attribute is written 0, it will set the brigthness and also remove this led trigger from trigger_list,
+ * This step will lead to the flash, torch or some others can not set brightness in normal flow, so we keep the trigger with special leds.
+ *
+ * This name "led:flash_torch" is from msm8974-leds.dtsi.
+*/
+		if (state == LED_OFF && strcmp(led_cdev->name, "led:flash_torch"))
+#else
 		if (state == LED_OFF)
+#endif //VENDOR_EDIT
 			led_trigger_remove(led_cdev);
 		led_set_brightness(led_cdev, state);
 	}

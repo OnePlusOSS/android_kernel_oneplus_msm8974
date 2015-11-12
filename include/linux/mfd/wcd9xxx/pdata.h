@@ -173,6 +173,12 @@ struct wcd9xxx_pdata {
 	struct wcd9xxx_micbias_setting micbias;
 	struct wcd9xxx_ocp_setting ocp;
 	struct wcd9xxx_regulator regulator[WCD9XXX_MAX_REGULATOR];
+	/*liuyan 2013-11-26 add for getting the hpmic regulator*/
+	#ifdef VENDOR_EDIT
+       struct regulator *cdc_hpmic_switch;
+	int hpmic_regulator_count;
+	#endif
+	/*liuyan add end*/
 	u32 mclk_rate;
 	u32 dmic_sample_rate;
 };

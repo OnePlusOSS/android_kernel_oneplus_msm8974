@@ -1808,6 +1808,72 @@ static void gpiolib_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	}
 }
 
+#ifdef CONFIG_VENDOR_EDIT
+static void gpiolib_func_dump(struct gpio_chip *chip)
+{
+	unsigned		i;
+	unsigned		gpio = chip->base;
+	struct gpio_desc	*gdesc = &gpio_desc[gpio];
+	int			is_out;
+
+	for (i = 0; i < chip->ngpio; i++, gpio++, gdesc++) {
+		if (!test_bit(FLAG_REQUESTED, &gdesc->flags))
+			continue;
+
+		is_out = test_bit(FLAG_IS_OUT, &gdesc->flags);
+		pr_info(" gpio-%-3d (%-20.20s) %s %s",
+			gpio, gdesc->label,
+			is_out ? "out" : "in ",
+			chip->get
+				? (chip->get(chip, i) ? "hi" : "lo")
+				: "?  ");
+	}
+}
+
+static uint need_dump_gpio;
+module_param(need_dump_gpio, uint, 0644);
+MODULE_PARM_DESC(need_dump_gpio, "need_dump_gpio");
+
+void gpiolib_dump(void)
+{
+	struct gpio_chip	*chip = NULL;
+	unsigned		gpio;
+	int			started = 0;
+	if(!need_dump_gpio)
+		return;
+	/* REVISIT this isn't locked against gpio_chip removal ... */
+
+	for (gpio = 0; gpio_is_valid(gpio); gpio++) {
+		struct device *dev;
+
+		if (chip == gpio_desc[gpio].chip)
+			continue;
+		chip = gpio_desc[gpio].chip;
+		if (!chip)
+			continue;
+
+		pr_info("%sGPIOs %d-%d",
+				started ? "\n" : "",
+				chip->base, chip->base + chip->ngpio - 1);
+		dev = chip->dev;
+		if (dev)
+			pr_info("%s/%s",
+				dev->bus ? dev->bus->name : "no-bus",
+				dev_name(dev));
+		if (chip->label)
+			pr_info("%s", chip->label);
+		if (chip->can_sleep)
+			pr_info("can sleep");
+
+		started = 1;
+		gpiolib_func_dump(chip);
+	}
+	//need add all pins status reg value dump here
+}
+EXPORT_SYMBOL_GPL(gpiolib_dump);
+
+#endif /* CONFIG_VENDOR_EDIT */
+
 static int gpiolib_show(struct seq_file *s, void *unused)
 {
 	struct gpio_chip	*chip = NULL;

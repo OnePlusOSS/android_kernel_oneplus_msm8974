@@ -2189,6 +2189,10 @@ retry_find_task:
 		 */
 		tcred = __task_cred(tsk);
 		if (cred->euid &&
+#ifdef VENDOR_EDIT
+//huruihuan add for system_server to access cgroup
+                    cred->euid != 1000 &&
+#endif
 		    cred->euid != tcred->uid &&
 		    cred->euid != tcred->suid) {
 			/*

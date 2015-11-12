@@ -243,6 +243,16 @@ void getnstimeofday(struct timespec *ts)
 
 EXPORT_SYMBOL(getnstimeofday);
 
+#ifdef CONFIG_VENDOR_EDIT
+ /* add for printk time */
+void getnstimeofday_no_nsecs(struct timespec *ts)
+{
+	*ts = timekeeper.xtime;
+}
+
+EXPORT_SYMBOL(getnstimeofday_no_nsecs);
+#endif /* CONFIG_VENDOR_EDIT */
+
 ktime_t ktime_get(void)
 {
 	unsigned int seq;
@@ -1184,9 +1194,18 @@ void get_monotonic_boottime(struct timespec *ts)
 		nsecs = timekeeping_get_ns();
 
 	} while (read_seqretry(&timekeeper.lock, seq));
-
+	#ifndef VENDOR_EDIT
 	set_normalized_timespec(ts, ts->tv_sec + tomono.tv_sec + sleep.tv_sec,
-		(s64)ts->tv_nsec + tomono.tv_nsec + sleep.tv_nsec + nsecs);
+			ts->tv_nsec + tomono.tv_nsec + sleep.tv_nsec + nsecs);
+	#else
+	/* 
+	zuoyonghua@oneplus.cn 2015-03-12 Solve bug 
+	clock_gettime(CLOCK_BOOTTIME, &ts_now) wrong
+	long  add long  cause Overflow
+	*/
+	set_normalized_timespec(ts, ts->tv_sec + tomono.tv_sec + sleep.tv_sec,
+			(s64)ts->tv_nsec + tomono.tv_nsec + sleep.tv_nsec + nsecs);
+	#endif
 }
 EXPORT_SYMBOL_GPL(get_monotonic_boottime);
 

@@ -175,7 +175,11 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	reg |= DWC3_GUSB2PHYCFG_PHYSOFTRST;
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
 
+//Removed by jiachenghui for optimize boot time,2015-9-15
+#ifndef VENDOR_EDIT
 	mdelay(100);
+#endif /* VENDOR_EDIT */
+//end removed by jiachenghui for optimize boot time,2015-9-15
 
 	/* Clear USB3 PHY reset */
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
@@ -187,7 +191,11 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	reg &= ~DWC3_GUSB2PHYCFG_PHYSOFTRST;
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
 
+//Removed by jiachenghui for optimize boot time,2015-9-15
+#ifndef VENDOR_EDIT
 	mdelay(100);
+#endif /* VENDOR_EDIT */
+//end removed by jiachenghui for optimize boot time,2015-9-15
 
 	/* After PHYs are stable we can take Core out of reset state */
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);

@@ -42,6 +42,11 @@
 #include <linux/notifier.h>
 #include <linux/rculist.h>
 
+#ifdef CONFIG_VENDOR_EDIT
+/* add for printk time */
+#include <linux/rtc.h>
+#endif /* CONFIG_VENDOR_EDIT */
+
 #include <asm/uaccess.h>
 
 #include <mach/msm_rtb.h>
@@ -148,7 +153,7 @@ static int console_may_schedule;
 
 #ifdef CONFIG_PRINTK
 
-static char __log_buf[__LOG_BUF_LEN];
+ char __log_buf[__LOG_BUF_LEN];
 static char *log_buf = __log_buf;
 static int log_buf_len = __LOG_BUF_LEN;
 static unsigned logged_chars; /* Number of chars produced since last read+clear operation */
@@ -188,6 +193,14 @@ static int __init log_buf_len_setup(char *str)
 	return 0;
 }
 early_param("log_buf_len", log_buf_len_setup);
+
+static int __init ftm_console_silent_setup(char *str)
+{
+	pr_info("ftm_silent_log\n");
+	console_silent();
+	return 0;
+}
+early_param("ftm_console_silent", ftm_console_silent_setup);
 
 void __init setup_log_buf(int early)
 {
@@ -755,6 +768,12 @@ static bool printk_time = 0;
 #endif
 module_param_named(time, printk_time, bool, S_IRUGO | S_IWUSR);
 
+#ifdef CONFIG_VENDOR_EDIT
+/* add for printk time */
+static bool print_wall_time = 1;
+module_param_named(print_wall_time, print_wall_time, bool, S_IRUGO | S_IWUSR);
+#endif /* CONFIG_VENDOR_EDIT */
+
 static bool always_kmsg_dump;
 module_param_named(always_kmsg_dump, always_kmsg_dump, bool, S_IRUGO | S_IWUSR);
 
@@ -888,6 +907,10 @@ static inline void printk_delay(void)
 		}
 	}
 }
+#ifdef CONFIG_VENDOR_EDIT 
+/* add for printk time */
+void getnstimeofday_no_nsecs(struct timespec *ts);
+#endif /* CONFIG_VENDOR_EDIT */
 
 asmlinkage int vprintk(const char *fmt, va_list args)
 {
@@ -898,6 +921,11 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	char *p;
 	size_t plen;
 	char special;
+#ifdef CONFIG_VENDOR_EDIT
+/* add for printk time */
+	struct timespec ts;
+	struct rtc_time tm;
+#endif /* CONFIG_VENDOR_EDIT */
 
 	boot_delay_msec();
 	printk_delay();
@@ -989,12 +1017,31 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 				unsigned long long t;
 				unsigned long nanosec_rem;
 
+#ifdef CONFIG_VENDOR_EDIT
+					t = cpu_clock(printk_cpu);
+					nanosec_rem = do_div(t, 1000000000);
+/* add for printk time */
+				if(print_wall_time && (t > 20)){
+					getnstimeofday_no_nsecs(&ts);
+					ts.tv_sec += 8*60*60; //Trasfer to Beijing time, UTC + 8
+					rtc_time_to_tm(ts.tv_sec, &tm);
+
+					tlen = sprintf(tbuf, "[%02d%02d%02d_%02d:%02d:%02d.%06lu]@%d ",
+									tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+									tm.tm_hour, tm.tm_min, tm.tm_sec, nanosec_rem/1000,smp_processor_id());
+
+				}else{
+					tlen = sprintf(tbuf, "[%5lu.%06lu] ",
+							(unsigned long) t,
+							nanosec_rem / 1000);
+				}
+#else
 				t = cpu_clock(printk_cpu);
 				nanosec_rem = do_div(t, 1000000000);
 				tlen = sprintf(tbuf, "[%5lu.%06lu] ",
 						(unsigned long) t,
 						nanosec_rem / 1000);
-
+#endif /* CONFIG_VENDOR_EDIT */
 				for (tp = tbuf; tp < tbuf + tlen; tp++)
 					emit_log_char(*tp);
 				printed_len += tlen;

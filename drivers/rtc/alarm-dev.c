@@ -40,9 +40,18 @@ module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 		} \
 	} while (0)
 
+/*   2013-11-19 yuyi modify begin for power up alarm */
+#ifndef VENDOR_EDIT
 #define ANDROID_ALARM_WAKEUP_MASK ( \
 	ANDROID_ALARM_RTC_WAKEUP_MASK | \
 	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
+#else
+#define ANDROID_ALARM_WAKEUP_MASK ( \
+	ANDROID_ALARM_RTC_WAKEUP_MASK | \
+	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK | \
+	ANDROID_ALARM_RTC_POWERUP_MASK)
+#endif
+/*   2013-11-19 yuyi modify end for power up alarm */
 
 /* support old usespace code */
 #define ANDROID_ALARM_SET_OLD               _IOW('a', 2, time_t) /* set alarm */
@@ -101,7 +110,13 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		alarm_enabled &= ~alarm_type_mask;
 		spin_unlock_irqrestore(&alarm_slock, flags);
+
+/*   2013-11-19 yuyi modify begin for power up alarm */
+#ifndef VENDOR_EDIT
 		if (alarm_type == ANDROID_ALARM_RTC_POWEROFF_WAKEUP)
+#else
+		if (alarm_type == ANDROID_ALARM_RTC_POWEROFF_WAKEUP || alarm_type == ANDROID_ALARM_RTC_POWERUP)
+#endif
 			if (!copy_from_user(&new_alarm_time,
 				(void __user *)arg, sizeof(new_alarm_time)))
 				set_power_on_alarm(new_alarm_time.tv_sec, 0);
@@ -134,10 +149,18 @@ from_old_alarm_set:
 			timespec_to_ktime(new_alarm_time),
 			timespec_to_ktime(new_alarm_time));
 		spin_unlock_irqrestore(&alarm_slock, flags);
+/*   2013-11-19 yuyi modify begin for power up alarm */
+#ifndef VENDOR_EDIT
 		if ((alarm_type == ANDROID_ALARM_RTC_POWEROFF_WAKEUP) &&
 				(ANDROID_ALARM_BASE_CMD(cmd) ==
 				 ANDROID_ALARM_SET(0)))
 			set_power_on_alarm(new_alarm_time.tv_sec, 1);
+#else
+		if ((alarm_type == ANDROID_ALARM_RTC_POWEROFF_WAKEUP || alarm_type == ANDROID_ALARM_RTC_POWERUP) &&
+				(ANDROID_ALARM_BASE_CMD(cmd) ==
+				 ANDROID_ALARM_SET(0)))
+			set_power_on_alarm(new_alarm_time.tv_sec, 1);
+#endif
 		mutex_unlock(&alarm_mutex);
 		if (ANDROID_ALARM_BASE_CMD(cmd) != ANDROID_ALARM_SET_AND_WAIT(0)
 		    && cmd != ANDROID_ALARM_SET_AND_WAIT_OLD)
@@ -176,6 +199,11 @@ from_old_alarm_set:
 		break;
 	case ANDROID_ALARM_GET_TIME(0):
 		switch (alarm_type) {
+/*   2013-11-19 yuyi Add begin for power up alarm */
+#ifdef VENDOR_EDIT
+		case ANDROID_ALARM_RTC_POWERUP: /* mwalker to get rtc alarm powerup */
+#endif
+/*   2013-11-19 yuyi Add begin for power up alarm */
 		case ANDROID_ALARM_RTC_WAKEUP:
 		case ANDROID_ALARM_RTC:
 		case ANDROID_ALARM_RTC_POWEROFF_WAKEUP:
@@ -221,6 +249,11 @@ static int alarm_release(struct inode *inode, struct file *file)
 	if (file->private_data != 0) {
 		for (i = 0; i < ANDROID_ALARM_TYPE_COUNT; i++) {
 			uint32_t alarm_type_mask = 1U << i;
+			#ifdef VENDOR_EDIT //Fangfang.Hui@Swdp.Android.Usb&Storage, 2014/09/05, Add for do not remove powerup alarm
+			if (i == ANDROID_ALARM_RTC_POWERUP)
+				continue;
+			#endif /* VENDOR_EDIT */
+
 			if (alarm_enabled & alarm_type_mask) {
 				pr_alarm(INFO, "alarm_release: clear alarm, "
 					"pending %d\n",

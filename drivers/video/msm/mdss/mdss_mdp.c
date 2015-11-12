@@ -1073,6 +1073,11 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 		writel_relaxed(1, offset + 16);
 	}
 
+	/* initialize csc matrix default value */
+	for (i = 0; i < mdata->nvig_pipes; i++) {
+		vig[i].cur_csc_set = MDSS_MDP_CSC_YUV2RGB_601L;
+		vig[i].new_csc_set = MDSS_MDP_CSC_YUV2RGB_601L;
+	}
 	mdata->nmax_concurrent_ad_hw =
 		(mdata->mdp_rev < MDSS_MDP_HW_REV_103) ? 1 : 2;
 

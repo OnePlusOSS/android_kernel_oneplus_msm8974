@@ -1236,7 +1236,7 @@ static ssize_t debug_read_status(struct file *file, char __user *ubuf,
 		i += scnprintf(buf + i, BUF_SIZE - i,
 			"tty_flags: %lu\n", tty->flags);
 
-	if (gser->get_dtr) {
+	if (gser && gser->get_dtr) {
 		result |= (gser->get_dtr(gser) ? TIOCM_DTR : 0);
 		i += scnprintf(buf + i, BUF_SIZE - i,
 			"DTR_status: %d\n", result);

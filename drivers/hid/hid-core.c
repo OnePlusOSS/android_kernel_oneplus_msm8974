@@ -38,6 +38,13 @@
 
 #include "hid-ids.h"
 
+/* Fix OTG switch cause reboot issue.+*/
+extern struct completion complet_xhci;
+extern struct completion complet_dwc3;
+extern bool running;
+extern int otg_current_state;
+/* Fix OTG switch cause reboot issue.-*/
+
 /*
  * Version Information
  */
@@ -1236,7 +1243,7 @@ int hid_connect(struct hid_device *hdev, unsigned int connect_mask)
 		hdev->claimed |= HID_CLAIMED_INPUT;
 	if (hdev->quirks & HID_QUIRK_MULTITOUCH) {
 		/* this device should be handled by hid-multitouch, skip it */
-		return -ENODEV;
+		goto err;
 	}
 
 	if ((connect_mask & HID_CONNECT_HIDDEV) && hdev->hiddev_connect &&
@@ -1248,7 +1255,7 @@ int hid_connect(struct hid_device *hdev, unsigned int connect_mask)
 
 	if (!hdev->claimed) {
 		hid_err(hdev, "claimed by neither input, hiddev nor hidraw\n");
-		return -ENODEV;
+		goto err;
 	}
 
 	if ((hdev->claimed & HID_CLAIMED_INPUT) &&
@@ -1295,8 +1302,22 @@ int hid_connect(struct hid_device *hdev, unsigned int connect_mask)
 	hid_info(hdev, "%s: %s HID v%x.%02x %s [%s] on %s\n",
 		 buf, bus, hdev->version >> 8, hdev->version & 0xff,
 		 type, hdev->name, hdev->phys);
-
+	/* Fix OTG switch cause reboot issue.+*/
+	running = false;
+	otg_current_state = 1;
+	complete(&complet_xhci);
+	complete(&complet_dwc3);
+	/* Fix OTG switch cause reboot issue.-*/
 	return 0;
+
+err:
+	/* Fix OTG switch cause reboot issue.+*/
+	running = false;
+	otg_current_state = 1;
+	complete(&complet_xhci);
+	complete(&complet_dwc3);
+	/* Fix OTG switch cause reboot issue.-*/
+	return -ENODEV;
 }
 EXPORT_SYMBOL_GPL(hid_connect);
 

@@ -2102,6 +2102,16 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 		 */
 		req->request.actual += req->request.length - count;
 		dwc3_gadget_giveback(dep, req, status);
+
+		/* TRD-3573: Qualcomm patch */
+		/* EP possibly disabled during giveback? */
+		if (!(dep->flags & DWC3_EP_ENABLED)) {
+			dev_dbg(dwc->dev, "%s disabled while handling ep event\n",
+					dep->name);
+			return 0;
+		}
+		/* TRD-3573: Qualcomm patch */
+
 		if (s_pkt)
 			break;
 		if ((event->status & DEPEVT_STATUS_LST) &&
@@ -2115,21 +2125,25 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 
 	dwc->gadget.xfer_isr_count++;
 
-	if (usb_endpoint_xfer_isoc(dep->endpoint.desc) &&
-			list_empty(&dep->req_queued)) {
-		if (list_empty(&dep->request_list))
-			/*
-			 * If there is no entry in request list then do
-			 * not issue END TRANSFER now. Just set PENDING
-			 * flag, so that END TRANSFER is issued when an
-			 * entry is added into request list.
-			 */
-			dep->flags |= DWC3_EP_PENDING_REQUEST;
-		else
-			dwc3_stop_active_transfer(dwc, dep->number);
-		dep->flags &= ~DWC3_EP_MISSED_ISOC;
-		return 1;
-	}
+    /* TRD-3573: Avoid NULL pointer: dep->endpoint.desc */
+    if(dep->endpoint.desc){
+	    if (usb_endpoint_xfer_isoc(dep->endpoint.desc) &&
+			    list_empty(&dep->req_queued)) {
+		    if (list_empty(&dep->request_list))
+			    /*
+			     * If there is no entry in request list then do
+			     * not issue END TRANSFER now. Just set PENDING
+			     * flag, so that END TRANSFER is issued when an
+			     * entry is added into request list.
+			     */
+			    dep->flags |= DWC3_EP_PENDING_REQUEST;
+		    else
+			    dwc3_stop_active_transfer(dwc, dep->number);
+		    dep->flags &= ~DWC3_EP_MISSED_ISOC;
+		    return 1;
+	    }
+    }
+    /* TRD-3573: Avoid NULL pointer: dep->endpoint.desc */
 
 	if ((event->status & DEPEVT_STATUS_IOC) &&
 			(trb->ctrl & DWC3_TRB_CTRL_IOC))
@@ -2413,7 +2427,11 @@ static void dwc3_gadget_usb2_phy_suspend(struct dwc3 *dwc, int suspend)
 static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 {
 	u32			reg;
+
+#ifndef CONFIG_VENDOR_EDIT
+	// delete by xcb
 	struct dwc3_otg		*dotg = dwc->dotg;
+#endif
 
 	dev_vdbg(dwc->dev, "%s\n", __func__);
 
@@ -2459,8 +2477,11 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 		dwc3_gadget_usb3_phy_suspend(dwc, false);
 	}
 
+#ifndef CONFIG_VENDOR_EDIT
+	// delete by xcb
 	if (dotg && dotg->otg.phy)
 		usb_phy_set_power(dotg->otg.phy, 0);
+#endif
 
 	if (dwc->gadget.speed != USB_SPEED_UNKNOWN)
 		dwc3_disconnect_gadget(dwc);

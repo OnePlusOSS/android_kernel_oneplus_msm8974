@@ -18,6 +18,9 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 #include <mach/socinfo.h>
+#ifdef CONFIG_VENDOR_EDIT
+#include <linux/project_info.h>
+#endif
 
 #define KS8851_IRQ_GPIO 94
 
@@ -26,7 +29,11 @@
 #define WLAN_DATA0	38
 #define WLAN_DATA1	37
 #define WLAN_DATA2	36
-
+#ifdef VENDOR_EDIT
+extern int console_set_on_cmdline;
+/*wangdongdong@OnePlus.MultiMediaService:Audio,2015/05/26,add for different from 14001 to 15055*/
+extern int get_smartpa_project(void);
+#endif
 static struct gpiomux_setting ap2mdm_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -54,15 +61,16 @@ static struct gpiomux_setting mdm2ap_pblrdy = {
 	.pull = GPIOMUX_PULL_NONE,
 	.dir = GPIOMUX_IN,
 };
-
-
+/* 2014-08-11 ranfei Delete begin for fpc1021 */
+#ifndef VENDOR_EDIT
 static struct gpiomux_setting ap2mdm_soft_reset_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
 	.dir = GPIOMUX_OUT_LOW,
 };
-
+#endif
+/* 2014-08-11 ranfei Delete delete for fpc1021 */
 static struct gpiomux_setting ap2mdm_wakeup = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -99,6 +107,8 @@ static struct msm_gpiomux_config mdm_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
 		}
 	},
+	/* 2014-08-11 ranfei Delete begin for fpc1021 */
+#ifndef VENDOR_EDIT
 	/* AP2MDM_SOFT_RESET, aka AP2MDM_PON_RESET_N */
 	{
 		.gpio = 24,
@@ -106,6 +116,7 @@ static struct msm_gpiomux_config mdm_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_soft_reset_cfg,
 		}
 	},
+#endif
 	/* AP2MDM_WAKEUP */
 	{
 		.gpio = 104,
@@ -127,6 +138,13 @@ static struct gpiomux_setting gpio_uart_config = {
 	.drv = GPIOMUX_DRV_16MA,
 	.pull = GPIOMUX_PULL_NONE,
 	.dir = GPIOMUX_OUT_HIGH,
+};
+
+static struct gpiomux_setting gpio_uart_config_for_gpio = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_DOWN,
+	.dir = GPIOMUX_IN,
 };
 
 static struct gpiomux_setting slimbus = {
@@ -360,14 +378,16 @@ static struct gpiomux_setting hsic_act_cfg = {
 	.drv = GPIOMUX_DRV_12MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-
+/* yuyi 2013-04-03 delete begin for nfc_spi*/
+#ifndef CONFIG_VENDOR_EDIT
 static struct gpiomux_setting hsic_hub_act_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_UP,
 	.dir = GPIOMUX_IN,
 };
-
+#endif
+/* yuyi 2013-04-03 delete end for nfc_spi*/
 static struct gpiomux_setting hsic_resume_act_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -404,7 +424,52 @@ static struct msm_gpiomux_config msm_hsic_configs[] = {
 		},
 	},
 };
+#ifdef VENDOR_EDIT
+/*wangdongdong@OnePlus.MultiMediaService:Audio, 2015/05/26,add for 15055*/
+static struct msm_gpiomux_config msm_hsic_temp_configs[] = {
+	{
+		.gpio = 144,               /*HSIC_STROBE */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
+		},
+	},
+	{
+		.gpio = 145,               /* HSIC_DATA */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
+		},
+	},
+};
+#endif
+//shankai@bsp, config gpio9 for tri_state_key. 2015-9-16
+#ifdef VENDOR_EDIT
+static struct gpiomux_setting tri_key3_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
 
+static struct gpiomux_setting tri_key3_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config tri_key3_configs[] = {
+	{
+		.gpio = 9,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &tri_key3_act_cfg,
+			[GPIOMUX_SUSPENDED] = &tri_key3_sus_cfg,
+		},
+	},
+};
+#endif
+
+/*OPPO yuyi 2013-04-03 delete begin for 14001 nfc_spi*/
+#ifndef CONFIG_VENDOR_EDIT
 static struct msm_gpiomux_config msm_hsic_hub_configs[] = {
 	{
 		.gpio = 50,               /* HSIC_HUB_INT_N */
@@ -414,7 +479,8 @@ static struct msm_gpiomux_config msm_hsic_hub_configs[] = {
 		},
 	},
 };
-
+#endif
+/*OPPO yuyi 2013-04-03 delete end for 14001 nfc_spi*/
 static struct gpiomux_setting mhl_suspend_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -563,8 +629,35 @@ static struct msm_gpiomux_config msm_lcd_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &lcd_en_sus_cfg,
 		},
 	},
-};
 
+#ifdef VENDOR_EDIT
+/* liuyan@Onlinerd.driver, 2014/08/10  Add for 14021 lcd enable */
+	{
+		.gpio = 76,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &lcd_en_act_cfg,
+			[GPIOMUX_SUSPENDED] = &lcd_en_sus_cfg,
+		},
+	},
+#endif /*CONFIG_VENDOR_EDIT*/
+/* OPPO 2013-10-18 yxq added begin for backlight */
+#ifdef VENDOR_EDIT
+		{
+		/* bl hw enable pin*/
+		.gpio      = 91,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &lcd_en_act_cfg,
+			[GPIOMUX_SUSPENDED] = &lcd_en_sus_cfg,
+		},
+	},
+#endif
+};
+/*  2013-10-18 yxq added end */
+/* 2013-11-04 liaofuchun add for pull down GPIO96*/
+#ifdef CONFIG_VENDOR_EDIT
+static struct gpiomux_setting sdc4_suspend_cfg;
+#endif
+/* 2013-11-04 liaofuchun add end*/
 static struct msm_gpiomux_config msm_epm_configs[] __initdata = {
 	{
 		.gpio      = 81,		/* EPM enable */
@@ -578,12 +671,84 @@ static struct msm_gpiomux_config msm_epm_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_epm_marker_config,
 		},
 	},
+/* 2013-11-04 liaofuchun modify for pull down GPIO96*/
+#ifndef CONFIG_VENDOR_EDIT
 	{
 		.gpio      = 96,		/* EPM MARKER1 */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_epm_marker_config,
 		},
 	},
+#else
+	{
+		.gpio      = 96,		/* EPM MARKER1 */
+		.settings = {
+			[GPIOMUX_ACTIVE]	= &sdc4_suspend_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
+		},
+	},
+#endif
+/* 2013-11-04 liaofuchun modify end*/
+};
+#ifdef VENDOR_EDIT
+/*wangdongdong@OnePlus.MultiMediaService:Audio,2015/05/26,add for different from 14001 to 15055*/
+static struct msm_gpiomux_config msm_epm_temp_configs[] __initdata = {
+	{
+		.gpio      = 85,		/* EPM MARKER2 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_epm_marker_config,
+		},
+	},
+/* 2013-11-04 liaofuchun modify for pull down GPIO96*/
+
+	{
+		.gpio      = 96,		/* EPM MARKER1 */
+		.settings = {
+			[GPIOMUX_ACTIVE]	= &sdc4_suspend_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
+		},
+	},
+/* 2013-11-04 liaofuchun modify end*/
+};
+#endif
+// yuyi 2014-03-18 add begin for 14001 NFC spi clk
+#ifdef CONFIG_VENDOR_EDIT
+static struct gpiomux_setting gpio_blsp6_spi3_config = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+static struct gpiomux_setting gpio_blsp6_spi2_config = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
+static struct gpiomux_setting gpio_blsp6_spi1_config = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+static struct gpiomux_setting gpio_blsp6_spi_suspend_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+#endif
+
+static struct msm_gpiomux_config msm_uart_configs_for_gpio[] __initdata = {
+    {
+        .gpio      = 4,         /* BLSP2 UART TX */
+        .settings = {
+            [GPIOMUX_SUSPENDED] = &gpio_uart_config_for_gpio,
+        },
+    },
+    {
+        .gpio      = 5,         /* BLSP2 UART RX */
+        .settings = {
+            [GPIOMUX_SUSPENDED] = &gpio_uart_config_for_gpio,
+        },
+    },
 };
 
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
@@ -602,11 +767,28 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_spi_susp_config,
 		},
 	},
+#ifdef CONFIG_VENDOR_EDIT
 	{
-		.gpio      = 3,		/* BLSP1 QUP SPI_CLK */
+		/* BLSP1 QUP I2C_DATA */
+		.gpio      = 2,
 		.settings = {
-			[GPIOMUX_ACTIVE] = &gpio_spi_config,
-			[GPIOMUX_SUSPENDED] = &gpio_spi_susp_config,
+
+/* jingchun.wang@Onlinerd.Driver, 2014/01/08  Add for add i2c active setting */
+			[GPIOMUX_ACTIVE] = &gpio_i2c_act_config,
+
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+#endif
+	{
+		/* BLSP1 QUP I2C_CLK */
+		.gpio      = 3,
+		.settings = {
+#ifdef CONFIG_VENDOR_EDIT
+/* jingchun.wang@Onlinerd.Driver, 2014/01/08  Add for add i2c active setting */
+			[GPIOMUX_ACTIVE] = &gpio_i2c_act_config,
+#endif /*CONFIG_VENDOR_EDIT*/
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
 	},
 	{
@@ -638,6 +820,29 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 			[GPIOMUX_ACTIVE] = &gpio_i2c_act_config,
 		},
 	},
+	/* yuyi 2013-03-22 add begin for nfc*/
+#ifdef CONFIG_VENDOR_EDIT
+	{
+		.gpio	   = 29, 	/* BLSP1 QUP5 I2C_DAT */
+		.settings = {
+#ifdef CONFIG_VENDOR_EDIT
+/* jingchun.wang@Onlinerd.Driver, 2014/01/08  Add for add i2c active setting */
+			[GPIOMUX_ACTIVE] = &gpio_i2c_act_config,
+#endif /*CONFIG_VENDOR_EDIT*/
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio	   = 30, 	/* BLSP1 QUP5 I2C_CLK */
+		.settings = {
+#ifdef CONFIG_VENDOR_EDIT
+/* jingchun.wang@Onlinerd.Driver, 2014/01/08  Add for add i2c active setting */
+			[GPIOMUX_ACTIVE] = &gpio_i2c_act_config,
+#endif /*CONFIG_VENDOR_EDIT*/
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+#endif
 	{
 		.gpio      = 83,		/* BLSP11 QUP I2C_DAT */
 		.settings = {
@@ -650,30 +855,7 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
 	},
-	{
-		.gpio      = 4,			/* BLSP2 UART TX */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
-		},
-	},
-	{
-		.gpio      = 5,			/* BLSP2 UART RX */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
-		},
-	},
-	{                           /* NFC */
-		.gpio      = 29,		/* BLSP1 QUP6 I2C_DAT */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
-		},
-	},
-	{                           /* NFC */
-		.gpio      = 30,		/* BLSP1 QUP6 I2C_CLK */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
-		},
-	},
+
 	{
 		.gpio      = 53,		/* BLSP2 QUP4 SPI_DATA_MOSI */
 		.settings = {
@@ -703,7 +885,67 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		},
 	},
 };
+	// yuyi 2014-03-18 add begin for 14001 NFC spi clk, not suitable 15055
+static struct msm_gpiomux_config msm_blsp_nfc_configs[] __initdata = {
+#ifdef CONFIG_VENDOR_EDIT
+	{
+		.gpio = 49, //BLSP1_QUP5 (BLSP6) MOSI
+		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_blsp6_spi3_config,
+			[GPIOMUX_SUSPENDED] = &gpio_blsp6_spi_suspend_config,
+		},
+	},
+	{
+		.gpio = 50, //BLSP1_QUP5 (BLSP6) MISO
+		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_blsp6_spi2_config,
+			[GPIOMUX_SUSPENDED] = &gpio_blsp6_spi_suspend_config,
+		},
+	},
+	{
+		.gpio = 51, //BLSP1_QUP5 (BLSP6) CS
+		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_blsp6_spi1_config,
+			[GPIOMUX_SUSPENDED] = &gpio_blsp6_spi_suspend_config,
+		},
+	},
+	{
+		.gpio = 52, //BLSP1_QUP5 (BLSP6) CLK
+		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_blsp6_spi1_config,
+			[GPIOMUX_SUSPENDED] = &gpio_blsp6_spi_suspend_config,
+		},
+	},
+#endif
+};
+// yuyi 2014-03-18 add end for 14001 NFC spi clk
+//OPPO yuyi 2014-06-28 add end for 14021 NFC spi clk
+//wangjc add.
+//liuyan 2013-3-14,add hpmic switch
+#ifdef CONFIG_VENDOR_EDIT
+static struct gpiomux_setting hpmic_switch_active_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
 
+static struct gpiomux_setting hpmi_switch_suspended_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+static struct gpiomux_setting external_active_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting external_suspended_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+#endif
 static struct msm_gpiomux_config msm8974_slimbus_config[] __initdata = {
 	{
 		.gpio	= 70,		/* slimbus clk */
@@ -718,6 +960,61 @@ static struct msm_gpiomux_config msm8974_slimbus_config[] __initdata = {
 		},
 	},
 };
+#ifdef VENDOR_EDIT
+/* wangdongdong@MultiMedia.AudioDrv,2015/04/20, add for 15055 sec i2s use */
+static struct gpiomux_setting  mi2s_act_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+#if 0
+static struct gpiomux_setting  mi2s_data_act_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+#endif
+
+static struct gpiomux_setting  mi2s_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config msm8974_sec_mi2s_configs[] __initdata = {
+
+	{
+		.gpio	= 79,		/* sec mi2s clk */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_sus_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_act_cfg,
+		},
+	},
+	{
+		.gpio	= 80,
+			.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_sus_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_act_cfg,
+		},
+	},
+	{
+		.gpio = 81,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_sus_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_act_cfg,
+		},
+	},
+	{
+		.gpio = 82,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_sus_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_act_cfg,
+		},
+	},
+};
+
+#endif
+
 
 static struct gpiomux_setting cam_settings[] = {
 	{
@@ -749,6 +1046,15 @@ static struct gpiomux_setting cam_settings[] = {
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_DOWN,
 	},
+#ifndef VENDOR_EDIT
+        {
+/* 2015-10-12 longxiaowu@camera add for 15055 rear camera DVDD enable */
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+        },
+#endif
+
 };
 
 static struct gpiomux_setting sd_card_det_active_config = {
@@ -764,7 +1070,60 @@ static struct gpiomux_setting sd_card_det_sleep_config = {
 	.pull = GPIOMUX_PULL_UP,
 	.dir = GPIOMUX_IN,
 };
+#ifdef VENDOR_EDIT
+/*liuyan add 2013-8-14 for hpmic, speaker pa,etc*/
+static struct msm_gpiomux_config external_pa_configs[] __initdata = {
 
+	{
+		.gpio = 73,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &external_active_config,
+			[GPIOMUX_SUSPENDED] = &external_suspended_config,
+		},
+	},
+	{
+		.gpio = 87,         /*hpmic switch*/
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hpmic_switch_active_config,
+			[GPIOMUX_SUSPENDED] = &hpmi_switch_suspended_config,
+		},
+	},
+
+		{
+		.gpio = 67,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hpmic_switch_active_config, //liuyan modify for dvt spk gpio
+			[GPIOMUX_SUSPENDED] = &hpmi_switch_suspended_config,
+		},
+	},
+		{
+		.gpio = 77,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hpmic_switch_active_config, //liuyan modify for dvt spk gpio
+			[GPIOMUX_SUSPENDED] = &hpmi_switch_suspended_config,
+		},
+	},
+};
+
+static struct msm_gpiomux_config external_pa_temp_configs[] __initdata = {
+	{
+		.gpio = 87,         /*hpmic switch*/
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hpmic_switch_active_config,
+			[GPIOMUX_SUSPENDED] = &hpmi_switch_suspended_config,
+		},
+	},
+
+		{
+		.gpio = 67,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hpmic_switch_active_config, //liuyan modify for dvt spk gpio
+			[GPIOMUX_SUSPENDED] = &hpmi_switch_suspended_config,
+		},
+	},
+};
+
+#endif
 static struct msm_gpiomux_config sd_card_det __initdata = {
 	.gpio = 62,
 	.settings = {
@@ -830,6 +1189,8 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[0],
 		},
 	},
+	/*  2014-08-11 ranfei Delete begin for fpc1021 */
+	#ifndef CONFIG_VENDOR_EDIT
 	{
 		.gpio = 23, /* FLASH_LED_EN */
 		.settings = {
@@ -858,6 +1219,8 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[1],
 		},
 	},
+	#endif
+	/*  2014-08-11 ranfei Delete end for fpc1021 */
 	{
 		.gpio = 27, /* OIS_SYNC */
 		.settings = {
@@ -865,6 +1228,7 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
 		},
 	},
+#ifndef VENDOR_EDIT
 	{
 		.gpio = 28, /* WEBCAM1_STANDBY */
 		.settings = {
@@ -872,6 +1236,7 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
 		},
 	},
+#endif
 	{
 		.gpio = 89, /* CAM1_STANDBY_N */
 		.settings = {
@@ -886,6 +1251,8 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
 		},
 	},
+	/*  2013-10-18 yxq deleted begin for reason */
+#ifndef CONFIG_VENDOR_EDIT
 	{
 		.gpio = 91, /* CAM2_STANDBY_N */
 		.settings = {
@@ -893,6 +1260,9 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
 		},
 	},
+	/*  2013-10-18 yxq deleted end for reason */
+
+	#endif
 	{
 		.gpio = 92, /* CAM2_RST_N */
 		.settings = {
@@ -900,6 +1270,16 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
 		},
 	},
+#ifdef VENDOR_EDIT
+/* 2015-10-12 longxiaowu@camera add for 15055 rear camera DVDD enable */
+    {
+		.gpio = 57, /* rear camera */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cam_settings[5],
+			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
+		},
+	}
+#endif
 };
 
 static struct msm_gpiomux_config msm_sensor_configs_dragonboard[] __initdata = {
@@ -959,6 +1339,8 @@ static struct msm_gpiomux_config msm_sensor_configs_dragonboard[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[0],
 		},
 	},
+/* OPPO 2014-08-11 ranfei Delete begin for fpc1021 */
+#ifndef CONFIG_VENDOR_EDIT
 	{
 		.gpio = 23, /* FLASH_LED_EN */
 		.settings = {
@@ -987,6 +1369,8 @@ static struct msm_gpiomux_config msm_sensor_configs_dragonboard[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[1],
 		},
 	},
+#endif
+/* OPPO 2014-08-11 ranfei Delete end */
 	{
 		.gpio = 27, /* OIS_SYNC */
 		.settings = {
@@ -994,6 +1378,7 @@ static struct msm_gpiomux_config msm_sensor_configs_dragonboard[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
 		},
 	},
+#ifndef VENDOR_EDIT
 	{
 		.gpio = 28, /* WEBCAM1_STANDBY */
 		.settings = {
@@ -1001,6 +1386,7 @@ static struct msm_gpiomux_config msm_sensor_configs_dragonboard[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
 		},
 	},
+#endif
 	{
 		.gpio = 89, /* CAM1_STANDBY_N */
 		.settings = {
@@ -1015,6 +1401,8 @@ static struct msm_gpiomux_config msm_sensor_configs_dragonboard[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
 		},
 	},
+/*  2013-10-18 yxq deleted begin for reason */
+#ifndef CONFIG_VENDOR_EDIT
 	{
 		.gpio = 91, /* CAM2_STANDBY_N */
 		.settings = {
@@ -1022,6 +1410,8 @@ static struct msm_gpiomux_config msm_sensor_configs_dragonboard[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
 		},
 	},
+#endif
+/*  2013-10-18 yxq deleted end */
 	{
 		.gpio = 94, /* CAM2_RST_N */
 		.settings = {
@@ -1043,7 +1433,21 @@ static struct gpiomux_setting auxpcm_sus_cfg = {
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
+/*  2013-04-18 zhengzk Add begin for hallsensor */
+#ifdef CONFIG_VENDOR_EDIT //#ifdef CONFIG_VENDOR_EDIT
+static struct gpiomux_setting hall_switch_active_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
 
+static struct gpiomux_setting hall_switch_suspended_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+#endif
+/*  2013-04-18 zhengzk Add end */
 /* Primary AUXPCM port sharing GPIO lines with Primary MI2S */
 static struct msm_gpiomux_config msm8974_pri_pri_auxpcm_configs[] __initdata = {
 	{
@@ -1060,6 +1464,7 @@ static struct msm_gpiomux_config msm8974_pri_pri_auxpcm_configs[] __initdata = {
 			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
 		},
 	},
+#ifndef CONFIG_VENDOR_EDIT
 	{
 		.gpio = 67,
 		.settings = {
@@ -1067,11 +1472,19 @@ static struct msm_gpiomux_config msm8974_pri_pri_auxpcm_configs[] __initdata = {
 			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
 		},
 	},
+#endif
 	{
 		.gpio = 68,
 		.settings = {
+/* OPPO 2013-04-18 zhengzk Modify begin for hallsensor */
+#if 0 //#ifdef CONFIG_VENDOR_EDIT
 			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
 			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+#else
+			[GPIOMUX_SUSPENDED] = &hall_switch_suspended_config,
+			[GPIOMUX_ACTIVE] = &hall_switch_active_config,
+#endif
+/* OPPO 2013-04-18 zhengzk Modify end */
 		},
 	},
 };
@@ -1092,6 +1505,8 @@ static struct msm_gpiomux_config msm8974_pri_ter_auxpcm_configs[] __initdata = {
 			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
 		},
 	},
+#ifndef VENDOR_EDIT
+/* liuyan@Onlinerd.driver, 2014/08/10  Add for delete for lcd enable */
 	{
 		.gpio = 76,
 		.settings = {
@@ -1099,6 +1514,9 @@ static struct msm_gpiomux_config msm8974_pri_ter_auxpcm_configs[] __initdata = {
 			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
 		},
 	},
+#endif /*CONFIG_VENDOR_EDIT*/
+//liuyan 2013-12-30 del for spk gpio
+#ifndef VENDOR_EDIT
 	{
 		.gpio = 77,
 		.settings = {
@@ -1106,6 +1524,7 @@ static struct msm_gpiomux_config msm8974_pri_ter_auxpcm_configs[] __initdata = {
 			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
 		},
 	},
+#endif
 };
 
 static struct msm_gpiomux_config msm8974_sec_auxpcm_configs[] __initdata = {
@@ -1215,7 +1634,34 @@ static struct msm_gpiomux_config wcnss_5gpio_interface[] = {
 	},
 };
 
+#ifdef VENDOR_EDIT
+/* hefaxi@filesystems,2015/06/09, for sd card */
+static struct gpiomux_setting sd_card_en_active_config = {
+    .func = GPIOMUX_FUNC_GPIO,
+    .drv = GPIOMUX_DRV_2MA,
+    .pull = GPIOMUX_PULL_NONE,
+    .dir = GPIOMUX_OUT_HIGH,
+};
+
+static struct gpiomux_setting sd_card_en_sleep_config = {
+    .func = GPIOMUX_FUNC_GPIO,
+    .drv = GPIOMUX_DRV_2MA,
+    .pull = GPIOMUX_PULL_NONE,
+    .dir = GPIOMUX_OUT_LOW,
+};
+
+static struct msm_gpiomux_config sd_card_en __initdata = {
+    .gpio   = 64,
+    .settings = {
+        [GPIOMUX_ACTIVE] = &sd_card_en_active_config,
+        [GPIOMUX_SUSPENDED] = &sd_card_en_sleep_config,
+    },
+};
+#endif /* end ifdef VENDOR_EDIT, by hefaxi */
+
 static struct msm_gpiomux_config ath_gpio_configs[] = {
+/* yuyi 2013-04-03 delete begin for nfc_spi*/
+#ifndef CONFIG_VENDOR_EDIT
 	{
 		.gpio = 51,
 		.settings = {
@@ -1223,6 +1669,8 @@ static struct msm_gpiomux_config ath_gpio_configs[] = {
 			[GPIOMUX_SUSPENDED] = &ath_gpio_suspend_cfg,
 		},
 	},
+#endif
+/*OPPO yuyi 2013-04-03 delete end for nfc_spi*/
 	{
 		.gpio = 79,
 		.settings = {
@@ -1378,6 +1826,8 @@ static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &sdc4_data_1_suspend_cfg,
 		},
 	},
+/*OPPO 2013-11-04 liaofuchun modify for GPIO96 pull down*/
+#ifndef CONFIG_VENDOR_EDIT
 	{
 		/* DAT0 */
 		.gpio      = 96,
@@ -1386,6 +1836,20 @@ static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
 		},
 	},
+#else
+	{
+		/* DAT0 */
+		.gpio      = 96,
+		.settings = {
+			[GPIOMUX_ACTIVE]	= &sdc4_suspend_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
+		},
+	},
+#endif
+/* 2013-11-04 liaofuchun modify end*/
+
+//yanghai modify	for backlight hw enable pin 2013.10.8
+#ifndef CONFIG_VENDOR_EDIT
 	{
 		/* CMD */
 		.gpio      = 91,
@@ -1394,6 +1858,8 @@ static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
 		},
 	},
+#endif
+//yanghai modify end
 	{
 		/* CLK */
 		.gpio      = 93,
@@ -1450,12 +1916,20 @@ void __init msm_8974_init_gpiomux(void)
 		msm_gpiomux_install(msm_eth_configs, \
 			ARRAY_SIZE(msm_eth_configs));
 #endif
+
+	if(!console_set_on_cmdline) //if no uart need, config this 2 pin as gpio, if uart, do nothind and keep lk config
+		msm_gpiomux_install(msm_uart_configs_for_gpio,ARRAY_SIZE(msm_uart_configs_for_gpio));
+
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
 	msm_gpiomux_install(msm_blsp2_uart7_configs,
 			 ARRAY_SIZE(msm_blsp2_uart7_configs));
 	msm_gpiomux_install(wcnss_5wire_interface,
 				ARRAY_SIZE(wcnss_5wire_interface));
-	if (of_board_is_liquid())
+#ifdef VENDOR_EDIT
+	if (of_board_is_liquid()&&!get_smartpa_project())
+#else
+    if (of_board_is_liquid())
+#endif
 		msm_gpiomux_install_nowrite(ath_gpio_configs,
 					ARRAY_SIZE(ath_gpio_configs));
 	msm_gpiomux_install(msm8974_slimbus_config,
@@ -1471,8 +1945,25 @@ void __init msm_8974_init_gpiomux(void)
 	else
 		msm_gpiomux_install(msm_sensor_configs, \
 				ARRAY_SIZE(msm_sensor_configs));
-
+#ifdef VENDOR_EDIT
+//liuyan add 2013-6-9 register gpio
+if(!get_smartpa_project())
+{
+    msm_gpiomux_install(external_pa_configs, ARRAY_SIZE(external_pa_configs));
 	msm_gpiomux_install(&sd_card_det, 1);
+}
+else
+{
+    msm_gpiomux_install(external_pa_temp_configs, ARRAY_SIZE(external_pa_temp_configs));
+	msm_gpiomux_install(msm8974_sec_mi2s_configs,ARRAY_SIZE(msm8974_sec_mi2s_configs));
+}
+
+#endif
+
+#ifdef VENDOR_EDIT
+/* hefaxi@filesystems,2015/06/09, for sd card */
+    msm_gpiomux_install(&sd_card_en, 1);
+#endif /* end ifdef VENDOR_EDIT */
 
 	if (machine_is_apq8074() && (of_board_is_liquid() || \
 	    of_board_is_dragonboard()))
@@ -1482,12 +1973,24 @@ void __init msm_8974_init_gpiomux(void)
 		msm_gpiomux_sdc4_install();
 
 	msm_gpiomux_install(msm_taiko_config, ARRAY_SIZE(msm_taiko_config));
-
-	msm_gpiomux_install(msm_hsic_configs, ARRAY_SIZE(msm_hsic_configs));
+#ifdef VENDOR_EDIT
+	if(!get_smartpa_project())
+	   msm_gpiomux_install(msm_hsic_configs, ARRAY_SIZE(msm_hsic_configs));
+	else
+	  msm_gpiomux_install(msm_hsic_temp_configs, ARRAY_SIZE(msm_hsic_temp_configs));
+#else
+    msm_gpiomux_install(msm_hsic_configs, ARRAY_SIZE(msm_hsic_configs));
+#endif
+	#ifndef VENDOR_EDIT
 	msm_gpiomux_install(msm_hsic_hub_configs,
 				ARRAY_SIZE(msm_hsic_hub_configs));
-
+	#endif
 	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
+
+#ifdef VENDOR_EDIT //shankai@bsp, config the gpio9 for tri_state_key , 2015-9-16
+	msm_gpiomux_install(tri_key3_configs, ARRAY_SIZE(tri_key3_configs));
+#endif
+
 	if (of_board_is_fluid())
 		msm_gpiomux_install(msm_mhl_configs,
 				    ARRAY_SIZE(msm_mhl_configs));
@@ -1505,9 +2008,23 @@ void __init msm_8974_init_gpiomux(void)
 				 ARRAY_SIZE(msm8974_sec_auxpcm_configs));
 	else if (of_board_is_liquid() || of_board_is_fluid() ||
 						of_board_is_mtp())
+#ifdef VENDOR_EDIT
+	{
+	   if(!get_smartpa_project())
 		msm_gpiomux_install(msm_epm_configs,
 				ARRAY_SIZE(msm_epm_configs));
-
+	   else
+	    msm_gpiomux_install(msm_epm_temp_configs,
+				ARRAY_SIZE(msm_epm_temp_configs));
+	}
+#else
+    msm_gpiomux_install(msm_epm_configs,
+				ARRAY_SIZE(msm_epm_configs));
+#endif
+	if(is_14001_project()){
+          msm_gpiomux_install( msm_blsp_nfc_configs,
+                ARRAY_SIZE(msm_blsp_nfc_configs));
+    }
 	msm_gpiomux_install_nowrite(msm_lcd_configs,
 			ARRAY_SIZE(msm_lcd_configs));
 

@@ -42,6 +42,7 @@
 #include "wcd9xxx-common.h"
 #include "wcdcal-hwdep.h"
 
+#include <linux/wakelock.h> //2014-2-13 xuzhaoan add for SVA patch
 
 #define TAIKO_MAD_SLIMBUS_TX_PORT 12
 #define TAIKO_MAD_AUDIO_FIRMWARE_PATH "wcd9320/wcd9320_mad_audio.bin"
@@ -61,7 +62,7 @@ static atomic_t kp_taiko_priv;
 static int spkr_drv_wrnd_param_set(const char *val,
 				   const struct kernel_param *kp);
 static int spkr_drv_wrnd = 1;
-
+extern int get_smartpa_project(void);
 static struct kernel_param_ops spkr_drv_wrnd_param_ops = {
 	.set = spkr_drv_wrnd_param_set,
 	.get = param_get_int,
@@ -454,9 +455,21 @@ struct taiko_priv {
 	 */
 	struct list_head reg_save_restore;
 	struct pm_qos_request pm_qos_req;
+	#ifdef VENDOR_EDIT
+	/*liuyan add 2013-11-26 for hpmic regulator*/
+	struct regulator	*cdc_hpmic_switch;
+	int hpmic_regulator_count;
+	/*endif*/
+	#endif
 	/* cal info for codec */
+    struct wake_lock taiko_mad_wlock; //2014-2-13 xuzhaoan add for SVA patch
 	struct fw_info *fw_data;
 };
+/* OPPO 2013-11-12 xuzhaoan Add begin for American Headset Detect */
+#ifdef VENDOR_EDIT
+    struct taiko_priv *priv_headset_type;
+#endif
+/* OPPO 2013-11-12 xuzhaoan Add end */
 
 static const u32 comp_shift[] = {
 	4, /* Compander 0's clock source is on interpolator 7 */
@@ -537,7 +550,35 @@ static unsigned short tx_digital_gain_reg[] = {
 	TAIKO_A_CDC_TX9_VOL_CTL_GAIN,
 	TAIKO_A_CDC_TX10_VOL_CTL_GAIN,
 };
+//liuyan 2013-3-13 add for headset detect
+#ifdef VENDOR_EDIT
+enum 
+{
+	NO_DEVICE	= 0,
+	HS_WITH_MIC	= 1,
+	HS_WITHOUT_MIC = 2,
+};
+static ssize_t wcd9xxx_print_name(struct switch_dev *sdev, char *buf)
+{
+	switch (switch_get_state(sdev)) 
+	{
+		case NO_DEVICE:
+			return sprintf(buf, "No Device\n");
+		case HS_WITH_MIC:
+            if(priv_headset_type->mbhc.mbhc_cfg->headset_type == 1) {
+		        return sprintf(buf, "American Headset\n");
+            } else {
+                return sprintf(buf, "Headset\n");
+            }
 
+		case HS_WITHOUT_MIC:
+			return sprintf(buf, "Handset\n");
+
+	}
+	return -EINVAL;
+}
+#endif
+//liuyan add end
 static int spkr_drv_wrnd_param_set(const char *val,
 				   const struct kernel_param *kp)
 {
@@ -1507,8 +1548,73 @@ static const struct soc_enum taiko_2_x_ear_pa_gain_enum =
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(taiko_2_x_ear_pa_gain_text),
 			taiko_2_x_ear_pa_gain_text);
 
-static const struct snd_kcontrol_new taiko_2_x_analog_gain_controls[] = {
+#ifdef VENDOR_EDIT
+/* xiaojun.lv@PhoneDpt.AudioDrv,2014/3/18,modify for 14001 spk control*/
+static int spkr_put_control(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
+	unsigned int value;
+	value = ucontrol->value.integer.value[0];
+	printk("%s:val %d\n",__func__,value);
+	 if(!get_smartpa_project())
+	 {
+	if(value){
+        if(taiko->mbhc.mbhc_cfg->cdc_spk)
+        {
+            pr_debug("%s regulator_enable(taiko->mbhc.mbhc_cfg->cdc_spk);\n",__func__);
+            regulator_enable(taiko->mbhc.mbhc_cfg->cdc_spk);
+            msleep(50);
+    	}
+	
+		gpio_set_value(taiko->mbhc.mbhc_cfg->enable_spk_gpio,1);
+		pr_debug("%s:gpio:%d %d\n",__func__,taiko->mbhc.mbhc_cfg->enable_spk_gpio,
+			    gpio_get_value(taiko->mbhc.mbhc_cfg->enable_spk_gpio));
+	
+        gpio_set_value(taiko->mbhc.mbhc_cfg->yda145_ctr_gpio,1);
+		pr_debug("%s:gpio:%d %d\n",__func__,taiko->mbhc.mbhc_cfg->yda145_ctr_gpio,
+			    gpio_get_value(taiko->mbhc.mbhc_cfg->yda145_ctr_gpio));
 
+	}else{
+		gpio_set_value(taiko->mbhc.mbhc_cfg->yda145_ctr_gpio,0);
+		pr_debug("%s:gpio:%d %d\n",__func__,taiko->mbhc.mbhc_cfg->yda145_ctr_gpio,
+			    gpio_get_value(taiko->mbhc.mbhc_cfg->yda145_ctr_gpio));	
+			    
+		gpio_set_value(taiko->mbhc.mbhc_cfg->enable_spk_gpio,0);
+		pr_debug("%s:gpio:%d %d\n",__func__,taiko->mbhc.mbhc_cfg->enable_spk_gpio,
+			     gpio_get_value(taiko->mbhc.mbhc_cfg->enable_spk_gpio));
+
+		if(taiko->mbhc.mbhc_cfg->cdc_spk)
+        {
+            pr_debug("%s regulator_disable(taiko->mbhc.mbhc_cfg->cdc_spk);\n",__func__);
+            msleep(50);
+            regulator_disable(taiko->mbhc.mbhc_cfg->cdc_spk);
+    	}
+	}
+  }
+	return 0;
+}
+static int spkr_get_control(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	/* struct snd_soc_codec *codec = es325_priv.codec; */
+	//unsigned int value;
+
+	//ucontrol->value.integer.value[0] = value;
+
+	return 0;
+}
+
+#endif
+/*liuyan add end*/
+static const struct snd_kcontrol_new taiko_2_x_analog_gain_controls[] = {
+//liuyan 2013-8-12 add power on max2777
+#ifdef VENDOR_EDIT
+	SOC_SINGLE_EXT("SPKR Enable", 0, 0, 1, 0,
+		                 spkr_get_control, spkr_put_control),
+#endif	
+//liuyan add end
 	SOC_ENUM_EXT("EAR PA Gain", taiko_2_x_ear_pa_gain_enum,
 		taiko_pa_gain_get, taiko_pa_gain_put),
 
@@ -2690,6 +2796,7 @@ static int taiko_codec_config_mad(struct snd_soc_codec *codec)
 	size_t cal_size;
 
 	pr_debug("%s: enter\n", __func__);
+	wake_lock(&taiko->taiko_mad_wlock); //2014-2-13 xuzhaoan add for SVA patch
 	/* wakeup for codec calibration access */
 	pm_qos_add_request(&taiko->pm_qos_req,
 			   PM_QOS_CPU_DMA_LATENCY,
@@ -2792,6 +2899,8 @@ static int taiko_codec_config_mad(struct snd_soc_codec *codec)
 err:
 	if (!hwdep_cal)
 		release_firmware(fw);
+	wake_unlock(&taiko->taiko_mad_wlock); //2014-2-13 xuzhaoan add for SVA patch 2-25 uncomment this line to release wakelock to save power
+
 	return ret;
 }
 
@@ -3446,6 +3555,7 @@ static int taiko_codec_enable_anc(struct snd_soc_dapm_widget *w,
 			snd_soc_write(codec, reg, (old_val & ~mask) |
 				(val & mask));
 		}
+		release_firmware(fw);
 		if (!hwdep_cal)
 			release_firmware(fw);
 		break;
@@ -6248,11 +6358,23 @@ static int taiko_handle_pdata(struct taiko_priv *taiko)
 	}
 
 	/* Set micbias capless mode with tail current */
+#ifdef VENDOR_EDIT
 	value = (pdata->micbias.bias1_cap_mode == MICBIAS_EXT_BYP_CAP ?
 		 0x00 : 0x16);
+#else
+	value = (pdata->micbias.bias1_cap_mode == MICBIAS_EXT_BYP_CAP ?
+		 0x00 : 0x16);
+#endif /*VENDOR_EDIT*/
 	snd_soc_update_bits(codec, TAIKO_A_MICB_1_CTL, 0x1E, value);
+#ifdef VENDOR_EDIT
 	value = (pdata->micbias.bias2_cap_mode == MICBIAS_EXT_BYP_CAP ?
 		 0x00 : 0x16);
+#else
+	value = (pdata->micbias.bias2_cap_mode == MICBIAS_EXT_BYP_CAP ?
+		 0x00 : 0x16);
+#endif /*VENDOR_EDIT*/
+        if(get_smartpa_project())
+             value = 0x16;
 	snd_soc_update_bits(codec, TAIKO_A_MICB_2_CTL, 0x1E, value);
 	value = (pdata->micbias.bias3_cap_mode == MICBIAS_EXT_BYP_CAP ?
 		 0x00 : 0x16);
@@ -6610,6 +6732,10 @@ static const struct wcd9xxx_reg_mask_val taiko_codec_reg_init_val[] = {
 
 	/* set DMIC CLK drive strength to 4mA */
 	{TAIKO_A_HDRIVE_OVERRIDE, 0x07, 0x01},
+#ifdef VENDOR_EDIT
+/* liuyan@Onlinerd.driver, 2014/01/15  Add for micbias pull down */
+	{TAIKO_A_MICB_1_CTL,0x01,0x01},
+#endif /*VENDOR_EDIT*/
 };
 
 static void taiko_codec_init_reg(struct snd_soc_codec *codec)
@@ -6687,6 +6813,19 @@ int taiko_hs_detect(struct snd_soc_codec *codec,
 {
 	int rc;
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
+	#ifdef VENDOR_EDIT
+	if(!get_smartpa_project())
+	{
+       /*liuyan add for hpmic regulator*/
+	if(taiko->cdc_hpmic_switch){
+	    printk("%s: get the hpmic regulator\n",__func__);
+	    mbhc_cfg->cdc_hpmic_switch=taiko->cdc_hpmic_switch;
+	    mbhc_cfg->hpmic_regulator_count=taiko->hpmic_regulator_count;
+      }else{
+           printk("%s: do not get the regulator\n",__func__);
+      }
+	  }
+	#endif
 	rc = wcd9xxx_mbhc_start(&taiko->mbhc, mbhc_cfg);
 	if (!rc)
 		taiko->mbhc_started = true;
@@ -7215,16 +7354,46 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "%s hwdep failed %d\n", __func__, ret);
 		goto err_hwdep;
 	}
+        //liuyan 2014-1-10 modify for low frequence nois in
+        //pluging headset
+	#ifndef VENDOR_EDIT
 	/* init and start mbhc */
 	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
 				taiko_enable_mbhc_micbias,
 				&mbhc_cb, &cdc_intr_ids,
 				rco_clk_rate, true);
+	#else
+	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
+				taiko_enable_mbhc_micbias,
+				&mbhc_cb, &cdc_intr_ids,
+				rco_clk_rate, false);
+	#endif
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		goto err_hwdep;
 	}
-
+//liuyan 2013-3-13 add, headset detec
+#ifdef VENDOR_EDIT
+	if(!get_smartpa_project())
+	{
+       /*liuyan add for hpmic regulator*/
+	if(pdata->cdc_hpmic_switch){
+	    printk("%s: get the hpmic regulator\n",__func__);
+	    taiko->cdc_hpmic_switch=pdata->cdc_hpmic_switch;
+	    taiko->hpmic_regulator_count=pdata->hpmic_regulator_count;
+      }else{
+           printk("%s: do not get the regulator\n",__func__);
+      }
+   }
+	taiko->mbhc.wcd9xxx_sdev.name= "h2w";
+	taiko->mbhc.wcd9xxx_sdev.print_name = wcd9xxx_print_name;
+	ret = switch_dev_register(&taiko->mbhc.wcd9xxx_sdev);
+	if (ret)
+	{
+		goto err_switch_dev_register;
+	}
+#endif
+//liuyan add end
 	taiko->codec = codec;
 	for (i = 0; i < COMPANDER_MAX; i++) {
 		taiko->comp_enabled[i] = 0;
@@ -7327,6 +7496,9 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 		goto err_irq;
 	}
 
+	wake_lock_init(&taiko->taiko_mad_wlock, WAKE_LOCK_SUSPEND,
+	        "taiko_mad_firmware_wlock"); //2014-2-13 xuzhaoan add for SVA patch
+
 	atomic_set(&kp_taiko_priv, (unsigned long)taiko);
 	mutex_lock(&dapm->codec->mutex);
 	snd_soc_dapm_disable_pin(dapm, "ANC HPHL");
@@ -7338,6 +7510,11 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	mutex_unlock(&dapm->codec->mutex);
 
 	codec->ignore_pmdown_time = 1;
+/* OPPO 2013-11-12 xuzhaoan Add begin for America Headset Detect */
+#ifdef VENDOR_EDIT
+    priv_headset_type = taiko;
+#endif
+/* OPPO 2013-11-12 xuzhaoan Add end */
 	return ret;
 
 err_irq:
@@ -7346,6 +7523,12 @@ err_irq:
 err_hwdep:
 	kfree(taiko->fw_data);
 err_nomem_slimch:
+//luiyan 2013-3-13 add for headset detect
+#ifdef VENDOR_EDIT
+switch_dev_unregister(&taiko->mbhc.wcd9xxx_sdev);
+err_switch_dev_register:
+#endif
+//liuyan add end
 	kfree(taiko);
 	return ret;
 }
@@ -7371,6 +7554,7 @@ static int taiko_codec_remove(struct snd_soc_codec *codec)
 	taiko->spkdrv_reg = NULL;
 
 	kfree(taiko->fw_data);
+	wake_lock_destroy(&taiko->taiko_mad_wlock); //2014-2-13 xuzhaoan add for SVA patch
 	kfree(taiko);
 	return 0;
 }

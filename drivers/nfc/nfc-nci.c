@@ -1110,8 +1110,7 @@ static int nfcc_hw_check(struct i2c_client *client, unsigned short curr_addr)
 err_presence_check:
 	r = -ENXIO;
 	dev_err(&client->dev,
-		"%s: - no NFCC available\n", __func__);
-leave:
+		"%sve:
 	return r;
 }
 /* Initialise qca199x_ NFC controller hardware */
@@ -1838,4 +1837,5 @@ module_exit(qca199x_dev_exit);
 
 MODULE_DESCRIPTION("NFC QCA199x");
 MODULE_LICENSE("GPL v2");
+
 

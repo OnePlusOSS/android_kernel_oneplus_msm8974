@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,16 +20,11 @@
 #include "msm_sd.h"
 
 /* Logging macro */
-/*#define CONFIG_MSMB_CAMERA_DEBUG*/
 #undef CDBG
-#ifdef CONFIG_MSMB_CAMERA_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) do { } while (0)
-#endif
+#define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 static struct msm_sensor_init_t *s_init;
-
+static struct v4l2_file_operations msm_sensor_init_v4l2_subdev_fops;
 /* Static function declaration */
 static long msm_sensor_init_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg);
@@ -53,18 +48,17 @@ static int msm_sensor_wait_for_probe_done(struct msm_sensor_init_t *s_init)
 		CDBG("msm_cam_get_module_init_status -2\n");
 		return 0;
 	}
-	rc = wait_event_interruptible_timeout(s_init->state_wait,
+	rc = wait_event_timeout(s_init->state_wait,
 		(s_init->module_init_status == 1), msecs_to_jiffies(tm));
-	if (rc < 0)
-		pr_err("%s:%d wait failed\n", __func__, __LINE__);
-	else if (rc == 0)
+	if (rc == 0)
 		pr_err("%s:%d wait timeout\n", __func__, __LINE__);
 
 	return rc;
 }
 
 /* Static function definition */
-static long msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init, void *arg)
+static int32_t msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init,
+	void *arg)
 {
 	int32_t                      rc = 0;
 	struct sensor_init_cfg_data *cfg = (struct sensor_init_cfg_data *)arg;
@@ -79,7 +73,9 @@ static long msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init, void *arg)
 	case CFG_SINIT_PROBE:
 		mutex_lock(&s_init->imutex);
 		s_init->module_init_status = 0;
-		rc = msm_sensor_driver_probe(cfg->cfg.setting);
+		rc = msm_sensor_driver_probe(cfg->cfg.setting,
+			&cfg->probed_info,
+			cfg->entity_name);
 		mutex_unlock(&s_init->imutex);
 		if (rc < 0)
 			pr_err("failed: msm_sensor_driver_probe rc %d", rc);
@@ -130,6 +126,7 @@ static long msm_sensor_init_subdev_ioctl(struct v4l2_subdev *sd,
 
 static int __init msm_sensor_init_module(void)
 {
+	int ret = 0;
 	/* Allocate memory for msm_sensor_init control structure */
 	s_init = kzalloc(sizeof(struct msm_sensor_init_t), GFP_KERNEL);
 	if (!s_init) {
@@ -154,11 +151,24 @@ static int __init msm_sensor_init_module(void)
 	s_init->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_SENSOR_INIT;
 	s_init->msm_sd.sd.entity.name = s_init->msm_sd.sd.name;
 	s_init->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x6;
-	msm_sd_register(&s_init->msm_sd);
+	ret = msm_sd_register(&s_init->msm_sd);
+	if (ret) {
+		CDBG("%s: msm_sd_register error = %d\n", __func__, ret);
+		goto error;
+	}
+
+	msm_sensor_init_v4l2_subdev_fops = v4l2_subdev_fops;
+
+	s_init->msm_sd.sd.devnode->fops =
+		&msm_sensor_init_v4l2_subdev_fops;
 
 	init_waitqueue_head(&s_init->state_wait);
 
 	return 0;
+error:
+	mutex_destroy(&s_init->imutex);
+	kfree(s_init);
+	return ret;
 }
 
 static void __exit msm_sensor_exit_module(void)

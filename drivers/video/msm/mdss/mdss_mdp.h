@@ -119,10 +119,14 @@ enum mdss_mdp_block_type {
 };
 
 enum mdss_mdp_csc_type {
-	MDSS_MDP_CSC_RGB2RGB,
-	MDSS_MDP_CSC_YUV2RGB,
-	MDSS_MDP_CSC_RGB2YUV,
+	MDSS_MDP_CSC_YUV2RGB_601L,
+	MDSS_MDP_CSC_YUV2RGB_601FR,
+	MDSS_MDP_CSC_YUV2RGB_709L,
+	MDSS_MDP_CSC_RGB2YUV_601L,
+	MDSS_MDP_CSC_RGB2YUV_601FR,
+	MDSS_MDP_CSC_RGB2YUV_709L,
 	MDSS_MDP_CSC_YUV2YUV,
+	MDSS_MDP_CSC_RGB2RGB,
 	MDSS_MDP_MAX_CSC
 };
 
@@ -421,6 +425,9 @@ struct mdss_mdp_pipe {
 	struct mdp_scale_data scale;
 	u8 chroma_sample_h;
 	u8 chroma_sample_v;
+
+	u8 cur_csc_set;
+	u8 new_csc_set;
 };
 
 struct mdss_mdp_writeback_arg {

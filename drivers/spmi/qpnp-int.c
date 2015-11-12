@@ -31,6 +31,7 @@
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <mach/qpnp-int.h>
+#include <linux/wakeup_reason.h>
 
 /* 16 slave_ids, 256 per_ids per slave, and 8 ints per per_id */
 #define QPNPINT_NR_IRQS		(16 * 256 * 8)
@@ -634,6 +635,7 @@ static int __qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
 		else if (desc->action && desc->action->name)
 			name = desc->action->name;
 
+		log_wakeup_reason(irq);
 		pr_warn("%d triggered [0x%01x, 0x%02x,0x%01x] %s\n",
 				irq, spec->slave, spec->per, spec->irq, name);
 	} else {

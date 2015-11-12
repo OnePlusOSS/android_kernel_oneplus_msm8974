@@ -53,7 +53,9 @@
  * registration of Slimbus of I2C bus for each codec
  */
 #define NUM_WCD9XXX_REG_RET	8
-
+#ifdef VENDOR_EDIT
+extern int get_smartpa_project(void);
+#endif
 struct wcd9xxx_i2c {
 	struct i2c_client *client;
 	struct i2c_msg xfer_msg[2];
@@ -1519,6 +1521,27 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	if (slim->dev.of_node) {
 		dev_info(&slim->dev, "Platform data from device tree\n");
 		pdata = wcd9xxx_populate_dt_pdata(&slim->dev);
+#ifdef VENDOR_EDIT
+if(!get_smartpa_project())
+{
+       //liuyan add hpmic 
+       pdata->hpmic_regulator_count=0;
+	pdata->cdc_hpmic_switch= regulator_get(&slim->dev, "cdc-hpmic_switch-1");
+	if (IS_ERR(pdata->cdc_hpmic_switch)) {
+		pr_err("%s:Failed to get hpmic switch regulator\n",__func__);
+		pdata->cdc_hpmic_switch= NULL;
+		//ret = -EINVAL;
+	}else{
+	         //add for booting pop noise with headse pluged
+	        if(regulator_enable(pdata->cdc_hpmic_switch)){
+			pr_err("%s:enable hpmic switch regulator faild!\n",__func__);
+		 }else{
+		       pdata->hpmic_regulator_count++;
+                     printk("%s:get the hpmic regulator, count %d\n",__func__,pdata->hpmic_regulator_count);
+		 }
+	}
+}
+#endif
 		ret = wcd9xxx_dt_parse_slim_interface_dev_info(&slim->dev,
 				&pdata->slimbus_slave_device);
 		if (ret) {

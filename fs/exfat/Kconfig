@@ -1,0 +1,8 @@
+config EXFAT_FS
+	tristate "EXFAT file system support (exfat)"
+	select CONFIG_NLS_UTF8
+	default y
+	help
+	  If you say Y here, you will be able to support exfat filesystem on your linux os.
+
+	  

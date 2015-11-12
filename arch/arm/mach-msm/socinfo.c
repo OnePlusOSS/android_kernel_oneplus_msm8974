@@ -183,7 +183,16 @@ struct socinfo_v9 {
 	/* only valid when format==9*/
 	uint32_t foundry_id;
 };
-
+/* yuyi 2013-10-18 add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+struct socinfo_v900 {
+	char hw_pcb_version[10];
+};
+struct socinfo_v100 {
+	char hw_rf_version[10];
+};
+#endif
+/* yuyi 2013-10-18 add end for pcb_version in sys/devices/system/soc/soc0*/
 static union {
 	struct socinfo_v1 v1;
 	struct socinfo_v2 v2;
@@ -194,6 +203,12 @@ static union {
 	struct socinfo_v7 v7;
 	struct socinfo_v8 v8;
 	struct socinfo_v9 v9;
+/* yuyi 2013-10-18 add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+	struct socinfo_v900 v900;
+	struct socinfo_v100 v100;
+#endif
+/* yuyi 2013-10-18 add end for pcb_version in sys/devices/system/soc/soc0*/
 } *socinfo;
 
 static struct msm_soc_info cpu_of_id[] = {
@@ -451,6 +466,182 @@ static struct socinfo_v1 dummy_socinfo = {
 	.version = 1,
 };
 
+/* yuyi 2013-10-18 add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+#include <linux/pcb_version.h>
+char * socinfo_get_hw_pcb_version(void)
+{
+	char *hw_version = "NULL";
+	switch(get_pcb_version()) {
+		case HW_VERSION__10:		
+			hw_version ="10";
+			break;
+		case HW_VERSION__11:
+			hw_version = "11";
+			break;
+		case HW_VERSION__12:
+			hw_version = "12";
+			break;
+		case HW_VERSION__13:
+			hw_version = "13";
+			break;
+		case HW_VERSION__20:		
+			hw_version ="20";
+			break;
+		case HW_VERSION__21:
+			hw_version = "21";
+			break;
+		case HW_VERSION__22:
+			hw_version = "22";
+			break;
+		case HW_VERSION__23:
+			hw_version = "23";
+			break;
+
+/* wenxian.zhen@Onlinerd.Driver, 2014/06/18  Add begin for N3  PCB	version */
+		case HW_VERSION__30:		
+			hw_version ="30";
+			break;
+		case HW_VERSION__31:
+			hw_version = "31";
+			break;
+		case HW_VERSION__32:
+			hw_version = "32";
+			break;
+		case HW_VERSION__33:
+			hw_version = "33";
+			break;
+		case HW_VERSION__34:		
+			hw_version ="34";
+			break;
+		case HW_VERSION__40:
+			hw_version = "40";
+			break;
+		case HW_VERSION__41:
+			hw_version = "41";
+			break;
+		case HW_VERSION__42:
+			hw_version = "42";
+			break;
+		case HW_VERSION__43:
+			hw_version = "43";
+			break;
+		case HW_VERSION__44:		
+			hw_version ="44";
+			break;		
+/* wenxian.zhen@Onlinerd.Driver, 2014/06/18  Add end for N3  PCB	version */			
+		default:
+			hw_version = "UNKOWN";
+		}
+	
+	return hw_version;
+
+}
+
+char * socinfo_get_hw_rf_version(void)
+{
+	char *rf_version = "NULL";
+	switch(get_rf_version()) {
+		case RF_VERSION__11:		
+			rf_version ="11";
+			break;
+		case RF_VERSION__12:
+			rf_version = "12";
+			break;
+		case RF_VERSION__13:
+			rf_version = "13";
+			break;
+		case RF_VERSION__21:
+			rf_version = "21";
+			break;
+		case RF_VERSION__22:		
+			rf_version ="22";
+			break;
+		case RF_VERSION__23:
+			rf_version = "23";
+			break;
+		case RF_VERSION__31:
+			rf_version = "31";
+			break;
+		case RF_VERSION__32:
+			rf_version = "32";
+			break;
+		case RF_VERSION__33:
+			rf_version = "33";
+			break;
+		case RF_VERSION__44:
+			rf_version = "44";
+			break;
+		case RF_VERSION__66:
+			rf_version = "66";
+			break;
+		case RF_VERSION__67:
+			rf_version = "67";
+			break;
+		case RF_VERSION__76:
+			rf_version = "76";
+			break;
+		case RF_VERSION__77:
+			rf_version = "77";
+			break;
+		case RF_VERSION__87:
+			rf_version = "87";
+			break;
+		case RF_VERSION__88:
+			rf_version = "88";
+			break;
+		case RF_VERSION__89:
+			rf_version = "89";
+			break;
+		case RF_VERSION__98:
+			rf_version = "98";
+			break;
+		case RF_VERSION__99:
+			rf_version = "99";
+			break;
+/* wenxian.zhen@Onlinerd.Driver, 2014/06/18  Add begin for N3  PCB RF version */
+		case RF_VERSION__90_CHINA_MOBILE:
+			rf_version = "90";
+			break;
+		case RF_VERSION__91_UNICOM:
+			rf_version = "91";
+			break;
+		case RF_VERSION__92_CHINA_RESERVED1:		
+			rf_version = "92";
+			break;
+		case RF_VERSION__93_CHINA_RESERVED2:
+			rf_version = "93";
+			break;
+		case RF_VERSION__94_CHINA_RESERVED3:
+			rf_version = "94";				
+			break;
+		case RF_VERSION__95_EUROPE:
+			rf_version = "95";
+			break;
+		case RF_VERSION__96_AMERICA:
+			rf_version = "96";
+			break;
+		case RF_VERSION__97_TAIWAN:
+			rf_version = "97";
+			break;
+		case RF_VERSION__98_INDONESIA:
+			rf_version = "98";
+			break;
+		case RF_VERSION__99_OVERSEA_RESERVED1:
+			rf_version = "99";
+			break;
+
+/* wenxian.zhen@Onlinerd.Driver, 2014/06/18  Add end for N3  PCB RF version */
+
+		default:
+			rf_version = "UNKOWN";
+		}
+	
+	return rf_version;
+
+}
+#endif
+/*OPPO yuyi 2013-10-18 add end for pcb_version in sys/devices/system/soc/soc0*/
 uint32_t socinfo_get_id(void)
 {
 	return (socinfo) ? socinfo->v1.id : 0;
@@ -569,6 +760,38 @@ enum msm_cpu socinfo_get_msm_cpu(void)
 	return cur_cpu;
 }
 EXPORT_SYMBOL_GPL(socinfo_get_msm_cpu);
+
+/* yuyi 2013-10-18 add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+static ssize_t
+socinfo_show_hw_pcb_version(struct sys_device *dev,
+		      struct sysdev_attribute *attr,
+		      char *buf)
+{
+	if (!socinfo) {
+		pr_err("%s: No socinfo found!\n", __func__);
+		return 0;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+			socinfo_get_hw_pcb_version());
+}
+
+static ssize_t
+socinfo_show_hw_rf_version(struct sys_device *dev,
+		      struct sysdev_attribute *attr,
+		      char *buf)
+{
+	if (!socinfo) {
+		pr_err("%s: No socinfo found!\n", __func__);
+		return 0;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+			socinfo_get_hw_rf_version());
+}
+#endif
+/* yuyi 2013-10-18 add end for pcb_version in sys/devices/system/soc/soc0*/
 
 static ssize_t
 socinfo_show_id(struct sys_device *dev,
@@ -919,6 +1142,17 @@ msm_get_pmic_die_revision(struct device *dev,
 			 socinfo_get_pmic_die_revision());
 }
 
+/* yuyi 2013-10-18 add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+static struct sysdev_attribute socinfo_v900_files[] = {
+	_SYSDEV_ATTR(hw_pcb_version, 0444, socinfo_show_hw_pcb_version, NULL),
+};
+static struct sysdev_attribute socinfo_v100_files[] = {
+	_SYSDEV_ATTR(hw_rf_version, 0444, socinfo_show_hw_rf_version, NULL),
+};
+#endif
+/* yuyi 2013-10-18 add end for pcb_version in sys/devices/system/soc/soc0*/
+
 static ssize_t
 msm_get_image_version(struct device *dev,
 			struct device_attribute *attr,
@@ -1165,9 +1399,16 @@ static struct device_attribute image_crm_version =
 	__ATTR(image_crm_version, S_IRUGO | S_IWUSR,
 			msm_get_image_crm_version, msm_set_image_crm_version);
 
+#ifdef CONFIG_VENDOR_EDIT
+/* Yubin@Mobile Phone Software Dept.Driver, 2013/12/27  Add for CTS permission */
 static struct device_attribute select_image =
 	__ATTR(select_image, S_IRUGO | S_IWUSR,
 			msm_get_image_number, msm_select_image);
+#else
+static struct device_attribute select_image =
+	__ATTR(select_image, S_IRUGO | S_IWUGO,
+			msm_get_image_number, msm_select_image);
+#endif /*CONFIG_VENDOR_EDIT*/
 
 static struct sysdev_class soc_sysdev_class = {
 	.name = "soc",
@@ -1325,7 +1566,14 @@ static int __init socinfo_init_sysdev(void)
 		       __func__, err);
 		goto socinfo_init_err;
 	}
-
+/*OPPO yuyi 2013-10-18 add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+	socinfo_create_files(&soc_sys_device, socinfo_v900_files,
+			ARRAY_SIZE(socinfo_v900_files));
+	socinfo_create_files(&soc_sys_device, socinfo_v100_files,
+			ARRAY_SIZE(socinfo_v100_files));
+#endif
+/*OPPO yuyi 2013-10-18 add end for pcb_version in sys/devices/system/soc/soc0*/
 	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
 				ARRAY_SIZE(socinfo_v1_files));
 	if (socinfo->v1.format < 2)

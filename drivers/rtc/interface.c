@@ -328,17 +328,44 @@ static int __rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 	struct rtc_time tm;
 	long now, scheduled;
 	int err;
+/*   2013-11-19 yuyi Add begin for clear alarm register */
+#ifdef VENDOR_EDIT
+	struct rtc_time rtc_tm;
+
+	memset(&rtc_tm, 0, sizeof(rtc_tm));// mwalker
+#endif
+/*   2013-11-19 yuyi Add end for clear alarm register */
 
 	err = rtc_valid_tm(&alarm->time);
+/*   2013-11-19 yuyi modify begin for clear alarm register */
+#ifndef VENDOR_EDIT
 	if (err)
 		return err;
+#else
+	/* Open a door to clear alarm register by mwalker. */
+	if (err != 0 && memcmp(&alarm->time, &rtc_tm, sizeof(rtc_tm))){
+		dev_err(&rtc->dev, "invalide alarm time\n");//Roshan
+		return err;
+	}
+#endif
+/*   2013-11-19 yuyi modify begin for clear alarm register */
+
 	rtc_tm_to_time(&alarm->time, &scheduled);
 
 	/* Make sure we're not setting alarms in the past */
 	err = __rtc_read_time(rtc, &tm);
 	rtc_tm_to_time(&tm, &now);
+/*   2013-11-19 yuyi modify begin for clear alarm register */
+#ifndef VENDOR_EDIT
 	if (scheduled <= now)
 		return -ETIME;
+#else
+	if (scheduled <= now && memcmp(&alarm->time, &rtc_tm, sizeof(rtc_tm))){
+		dev_warn(&rtc->dev, "%s : try to set alarm in the past\n", __func__);//Roshan
+		return -ETIME;
+	}
+#endif
+/*   2013-11-19 yuyi modify end for clear alarm register */
 	/*
 	 * XXX - We just checked to make sure the alarm time is not
 	 * in the past, but there is still a race window where if
@@ -360,6 +387,26 @@ int rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 {
 	int err;
 
+/*   2013-11-19 yuyi Add begin for clear alarm register */
+#ifdef VENDOR_EDIT
+	struct rtc_time rtc_tm;
+
+	memset(&rtc_tm, 0, sizeof(rtc_tm));// mwalker
+
+	/* Open a door to clear alarm register by mwalker. */
+	if(!memcmp(&alarm->time, &rtc_tm, sizeof(rtc_tm))){
+		err = __rtc_set_alarm(rtc, alarm);
+		return err;
+	}
+#endif
+/*   2013-11-19 yuyi Add end for clear alarm register */
+
+
+	/*  yuyi add begin just for analysis boot automaticly*/
+	#ifdef VENDOR_EDIT
+	printk("alarm  Interface.c rtc_set_alarm\n");
+	#endif
+	/*  yuyi add end just for analysis boot automaticly*/
 	err = rtc_valid_tm(&alarm->time);
 	if (err != 0)
 		return err;

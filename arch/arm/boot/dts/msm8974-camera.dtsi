@@ -20,7 +20,7 @@
 
 	qcom,csiphy@fda0ac00 {
 		cell-index = <0>;
-		compatible = "qcom,csiphy";
+		compatible = "qcom,csiphy-v3.0", "qcom,csiphy";
 		reg = <0xfda0ac00 0x200>,
                       <0xfda00030 0x4>;
 		reg-names = "csiphy", "csiphy_clk_mux";
@@ -30,7 +30,7 @@
 
 	qcom,csiphy@fda0b000 {
 		cell-index = <1>;
-		compatible = "qcom,csiphy";
+		compatible = "qcom,csiphy-v3.0", "qcom,csiphy";
 		reg = <0xfda0b000 0x200>,
                       <0xfda00038 0x4>;
 		reg-names = "csiphy", "csiphy_clk_mux";
@@ -40,7 +40,7 @@
 
 	qcom,csiphy@fda0b400 {
 		cell-index = <2>;
-		compatible = "qcom,csiphy";
+		compatible = "qcom,csiphy-v3.0", "qcom,csiphy";
 		reg = <0xfda0b400 0x200>,
                       <0xfda00040 0x4>;
 		reg-names = "csiphy", "csiphy_clk_mux";
@@ -50,7 +50,7 @@
 
 	qcom,csid@fda08000  {
 		cell-index = <0>;
-		compatible = "qcom,csid";
+		compatible = "qcom,csid-v3.0", "qcom,csid";
 		reg = <0xfda08000 0x100>;
 		reg-names = "csid";
 		interrupts = <0 51 0>;
@@ -61,7 +61,7 @@
 
 	qcom,csid@fda08400 {
 		cell-index = <1>;
-		compatible = "qcom,csid";
+		compatible = "qcom,csid-v3.0", "qcom,csid";
 		reg = <0xfda08400 0x100>;
 		reg-names = "csid";
 		interrupts = <0 52 0>;
@@ -72,7 +72,7 @@
 
 	qcom,csid@fda08800 {
 		cell-index = <2>;
-		compatible = "qcom,csid";
+		compatible = "qcom,csid-v3.0", "qcom,csid";
 		reg = <0xfda08800 0x100>;
 		reg-names = "csid";
 		interrupts = <0 53 0>;
@@ -83,7 +83,7 @@
 
 	qcom,csid@fda08C00 {
 		cell-index = <3>;
-		compatible = "qcom,csid";
+		compatible = "qcom,csid-v3.0", "qcom,csid";
 		reg = <0xfda08C00 0x100>;
 		reg-names = "csid";
 		interrupts = <0 54 0>;
@@ -195,39 +195,55 @@
 				      "CCI_I2C_CLK0",
 				      "CCI_I2C_DATA1",
 				      "CCI_I2C_CLK1";
-		master0: qcom,cci-master0 {
-			status = "disabled";
-		};
-		master1: qcom,cci-master1 {
-			status = "disabled";
-		};
+                i2c_freq_100Khz: qcom,i2c_standard_mode {
+                        status = "disabled";
+                };
+                i2c_freq_400Khz: qcom,i2c_fast_mode {
+                        status = "disabled";
+                };
+                i2c_freq_custom: qcom,i2c_custom_mode {
+                        status = "disabled";
+                };
 	};
 };
-
-&master0 {
-	qcom,hw-thigh = <78>;
-	qcom,hw-tlow = <114>;
-	qcom,hw-tsu-sto = <28>;
-	qcom,hw-tsu-sta = <28>;
-	qcom,hw-thd-dat = <10>;
-	qcom,hw-thd-sta = <77>;
-	qcom,hw-tbuf = <118>;
-	qcom,hw-scl-stretch-en = <0>;
-	qcom,hw-trdhld = <6>;
-	qcom,hw-tsp = <1>;
-	status = "ok";
+&i2c_freq_100Khz {
+        qcom,hw-thigh = <78>;
+        qcom,hw-tlow = <114>;
+        qcom,hw-tsu-sto = <28>;
+        qcom,hw-tsu-sta = <28>;
+        qcom,hw-thd-dat = <10>;
+        qcom,hw-thd-sta = <77>;
+        qcom,hw-tbuf = <118>;
+        qcom,hw-scl-stretch-en = <0>;
+        qcom,hw-trdhld = <6>;
+        qcom,hw-tsp = <1>;
+        status = "ok";
 };
 
-&master1 {
-	qcom,hw-thigh = <78>;
-	qcom,hw-tlow = <114>;
-	qcom,hw-tsu-sto = <28>;
-	qcom,hw-tsu-sta = <28>;
-	qcom,hw-thd-dat = <10>;
-	qcom,hw-thd-sta = <77>;
-	qcom,hw-tbuf = <118>;
-	qcom,hw-scl-stretch-en = <0>;
-	qcom,hw-trdhld = <6>;
-	qcom,hw-tsp = <1>;
-	status = "ok";
+&i2c_freq_400Khz {
+        qcom,hw-thigh = <20>;
+        qcom,hw-tlow = <28>;
+        qcom,hw-tsu-sto = <21>;
+        qcom,hw-tsu-sta = <21>;
+        qcom,hw-thd-dat = <13>;
+        qcom,hw-thd-sta = <18>;
+        qcom,hw-tbuf = <32>;
+        qcom,hw-scl-stretch-en = <0>;
+        qcom,hw-trdhld = <6>;
+        qcom,hw-tsp = <3>;
+        status = "ok";
+};
+
+&i2c_freq_custom {
+        qcom,hw-thigh = <15>;
+        qcom,hw-tlow = <28>;
+        qcom,hw-tsu-sto = <21>;
+        qcom,hw-tsu-sta = <21>;
+        qcom,hw-thd-dat = <13>;
+        qcom,hw-thd-sta = <18>;
+        qcom,hw-tbuf = <25>;
+        qcom,hw-scl-stretch-en = <1>;
+        qcom,hw-trdhld = <6>;
+        qcom,hw-tsp = <3>;
+        status = "ok";
 };

@@ -605,6 +605,12 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 			return ret;
 		}
 
+		/* add csc update setting */
+		if (pipe_type == MDSS_MDP_PIPE_TYPE_VIG &&
+				fmt->is_yuv) {
+			pipe->new_csc_set = req->color_space;
+		}
+
 		mutex_lock(&mdp5_data->list_lock);
 		list_add(&pipe->list, &mdp5_data->pipes_used);
 		mutex_unlock(&mdp5_data->list_lock);
@@ -632,6 +638,18 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 					pipe->num);
 			mdss_mdp_mixer_pipe_unstage(pipe);
 			pipe->mixer = mixer;
+		}
+
+		/* add csc update setting */
+		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG &&
+			pipe->src_fmt->is_yuv) {
+			if (pipe->cur_csc_set != req->color_space &&
+					pipe->play_cnt != 0) {
+				pr_err("Can't switch CSC on an active pipe!\n");
+				ret = -EINVAL;
+				goto exit_fail;
+			}
+			pipe->new_csc_set = req->color_space;
 		}
 	}
 

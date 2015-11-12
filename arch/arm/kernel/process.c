@@ -330,9 +330,12 @@ void machine_restart(char *cmd)
 {
 	machine_shutdown();
 
+#ifndef VENDOR_EDIT
+/* modify by yangrujin@bsp 2015/9/6, not flush console here, will do it in msm_restart func*/
 	/* Flush the console to make sure all the relevant messages make it
 	 * out to the console drivers */
 	arm_machine_flush_console();
+#endif /* VENDOR_EDIT*/
 
 	arm_pm_restart(reboot_mode, cmd);
 
