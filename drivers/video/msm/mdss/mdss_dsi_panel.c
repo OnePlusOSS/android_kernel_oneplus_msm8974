@@ -29,18 +29,18 @@
 #include <linux/project_info.h>
 #endif
 #ifdef CONFIG_VENDOR_EDIT
-/* OPPO 2013-10-24 yxq Add begin for panel info */
+/* 2013-10-24  Add begin for panel info */
 #include <mach/device_info.h>
-/* OPPO 2013-10-24 yxq Add end */
-/* OPPO 2013-12-09 yxq Add begin for disable continous display for ftm, rf, wlan mode */
+/* 2013-10-24 Add end */
+/* 2013-12-09 Add begin for disable continous display for ftm, rf, wlan mode */
 #include <linux/boot_mode.h>
-/* OPPO 2013-12-09 yxq Add end */
-/* OPPO 2014-02-11 yxq add begin for Find7s */
+/* 2013-12-09 Add end */
+/* 2014-02-11 add begin for Find7s */
 #include <linux/pcb_version.h>
-/* OPPO 2014-02-11 yxq add end */
+/*  2014-02-11add end */
 #endif
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/24  Add for ESD test */
+/* Mobile Phone Software Dept.Driver, 2014/02/24  Add for ESD test */
 #include <linux/switch.h>
 #endif
 
@@ -206,7 +206,7 @@ void send_user_defined_gamma(char * buf)
     }
 	if((get_pcb_version() < 20)||(get_pcb_version() >=30))
 
-	{/*liuyan add for N3*/
+	{/* add for N3*/
 		user_gamma = dcs_cmd_find7_1;
 		limt_len = sizeof(dcs_cmd_find7_1);
 	}
@@ -329,7 +329,7 @@ void set_resume_gamma(int index)
 			 mdss_dsi_panel_cmds_send(panel_data, &gamma4);
 			 break;
 		default:
-			pr_err("%s : invalid gamma index %d yxr \n",__func__,index);
+			pr_err("%s : invalid gamma index %d  \n",__func__,index);
 			break;
 	}
 }
@@ -341,7 +341,7 @@ int set_cabc(int level)
 	if (is_samsung_s6e3fa3_panel){
         return 0;
     }
-	if ((get_pcb_version() >= HW_VERSION__20)&&(get_pcb_version() <HW_VERSION__30)) { /* For Find7s ,liuyan add for N3*/
+	if ((get_pcb_version() >= HW_VERSION__20)&&(get_pcb_version() <HW_VERSION__30)) { /* For Find7s , add for N3*/
         return 0;
 	}
 	printk("%s : %d \n",__func__,level);
@@ -398,10 +398,10 @@ static int set_cabc_resume_mode(int mode)
 	if ((get_pcb_version() >= HW_VERSION__20)&&(get_pcb_version() <  HW_VERSION__30))
 
 
-	{ /* For Find7s ,liuyan add for N3*/
+	{ /* For Find7s , add for N3*/
         return 0;
     }
-	printk("%s : %d yxr \n",__func__,mode);
+	printk("%s : %d  \n",__func__,mode);
     switch(mode)
     {
         case 0:
@@ -789,7 +789,7 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 }
 
 #ifdef VENDOR_EDIT
-//LiQiu@oem.cn add for samsung_s6e3fa3 vci en
+//add for samsung_s6e3fa3 vci en
 int mdss_dsi_panel_vci_en(struct mdss_panel_data *pdata, int enable)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
@@ -998,23 +998,26 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 #endif
 #ifdef VENDOR_EDIT
-/* liuyan@Onlinerd.driver, 2014/08/10  Add for print 14021 lcd enable pin */
+/* Onlinerd.driver, 2014/08/10  Add for print 14021 lcd enable pin */
 	if(get_pcb_version() >= HW_VERSION__30)
 		pr_err("%s: gpio 76=%d\n", __func__,gpio_get_value(ctrl->disp_en_gpio76));
 #endif /*CONFIG_VENDOR_EDIT*/
 
+#ifdef VENDOR_EDIT
 	if (ctrl->on_cmds.cmd_cnt){
-    //yang hai and
-        if( (ctrl->index==0 && LCD_id < 4) || (ctrl->index==1 && (LCD_id ==4 || ((get_pcb_version()>=22)&&(get_pcb_version()<30))))){ /*liuyan add 30 for N3*/
-            //yanghai and end
+        if( (ctrl->index==0 && LCD_id < 4) || (ctrl->index==1 && (LCD_id ==4 || ((get_pcb_version()>=22)&&(get_pcb_version()<30))))){ /* add 30 for N3*/
             mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
             //pr_err("%s: send cmd successfully\n", __func__);
             set_resume_gamma(gamma_index);
             //set_resume_gamma(2);
         }
 	}
+#else
+	if (ctrl->on_cmds.cmd_cnt)
+	    mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
+#endif
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+/* Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
 	if(ctrl->index==0){
 	    if (!is_samsung_s6e3fa3_panel){
 		    set_backlight_pwm(1);
@@ -1034,7 +1037,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 #endif /*VENDOR_EDIT*/
 
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/25  Add for ESD test */
+/* Mobile Phone Software Dept.Driver, 2014/02/25  Add for ESD test */
 #ifdef ESD_TE_CHECK_ON
 	if(ctrl->index==0  && get_boot_mode() != MSM_BOOT_MODE__FACTORY){
 		if(first_run_reset==1 && !cont_splash_flag){
@@ -1072,7 +1075,7 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 #endif
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/25  Add for ESD test */
+/* Mobile Phone Software Dept.Driver, 2014/02/25  Add for ESD test */
 #ifdef ESD_TE_CHECK_ON
 	if(ctrl->index==0 && get_boot_mode() != MSM_BOOT_MODE__FACTORY){
 		cancel_delayed_work_sync(&techeck_work);
@@ -1080,10 +1083,10 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 #endif
 #endif /*VENDOR_EDIT*/
 	mipi  = &pdata->panel_info.mipi;
-
+#ifdef VENDOR_EDIT
 	if (ctrl->off_cmds.cmd_cnt){
 		if(ctrl->index==0){
-			if(LCD_id == 4 || ((get_pcb_version()>=22)&&(get_pcb_version()< 30)))/*liuyan add 30 for N3*/
+			if(LCD_id == 4 || ((get_pcb_version()>=22)&&(get_pcb_version()< 30)))/* add 30 for N3*/
             {
                 mdss_dsi_panel_cmds_send(panel_data, &ctrl->off_cmds);
             }else{
@@ -1091,6 +1094,10 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
             }
 		}
 	}
+#else
+	if (ctrl->off_cmds.cmd_cnt)
+        mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
+#endif
 	pr_debug("%s:-\n", __func__);
 	return 0;
 }
@@ -1786,7 +1793,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+/* Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
     if (is_samsung_s6e3fa3_panel){
     }else{
 	mdss_dsi_parse_dcs_cmds(np, &cabc_off_sequence,
@@ -1851,10 +1858,10 @@ int mdss_dsi_panel_init(struct device_node *node,
 	//	bool partial_update_enabled;
 
 
-		/* OPPO 2013-10-24 yxq Add begin for panel info */
+		/* 2013-10-24 Add begin for panel info */
 			static const char *panel_manufacture;
 			static const char *panel_version;
-		/* OPPO 2013-10-24 yxq Add end */
+		/* 2013-10-24 Add end */
 #endif
 	if (!node || !ctrl_pdata) {
 		pr_err("%s: Invalid arguments\n", __func__);
@@ -1862,8 +1869,8 @@ int mdss_dsi_panel_init(struct device_node *node,
 	}
 
 #ifdef VENDOR_EDIT
-	/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
-		if((first_run_init == 1 && LCD_id < 4) || LCD_id == 4 || ((get_pcb_version()>=22)&&(get_pcb_version()<30)))/*liuyan add 30 for N3*/
+	/* Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+		if((first_run_init == 1 && LCD_id < 4) || LCD_id == 4 || ((get_pcb_version()>=22)&&(get_pcb_version()<30)))/* add 30 for N3*/
 			{
 			panel_data = ctrl_pdata;
 			}
@@ -1879,7 +1886,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 
 #ifdef VENDOR_EDIT
-	/* OPPO 2013-10-24 yxq Add begin for panel info */
+	/* 2013-10-24 Add begin for panel info */
 		/*it just need to do one time*/
 	if(first_run_init==1){
 		panel_manufacture = of_get_property(node, "qcom,mdss-dsi-panel-manufacture", NULL);
@@ -1900,10 +1907,10 @@ int mdss_dsi_panel_init(struct device_node *node,
 		    is_samsung_s6e3fa3_panel = 1;
 	    }
 	}
-	/* OPPO 2013-10-24 yxq Add end */
+	/* 2013-10-24 Add end */
 #endif
 #ifdef VENDOR_EDIT
-	/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/22  Add for ESD test*/
+	/* Mobile Phone Software Dept.Driver, 2014/02/22  Add for ESD test*/
 		if (first_run_init==1 && get_boot_mode() != MSM_BOOT_MODE__FACTORY){  //for find7s
 			first_run_init=0;
     #ifdef ESD_TE_CHECK_ON
@@ -1934,10 +1941,10 @@ int mdss_dsi_panel_init(struct device_node *node,
 			device_create(mdss_lcd,dev_lcd,0,NULL,"lcd_control");
 	#endif
 				if(strstr(panel_name,"rsp 1440p video mode dsi panel")){
-					pr_err("this is rsp 1440p video mode dsi panel	 yxr\n");
+					pr_err("this is rsp 1440p video mode dsi panel	 \n");
 					find7s_lcd_rsp_ic = 1;
 				}else if(strstr(panel_name,"rsp 1440p cmd mode dsi panel")){
-					pr_err("this is rsp 1440p cmd mode dsi panel   yxr\n");
+					pr_err("this is rsp 1440p cmd mode dsi panel   \n");
 					find7s_lcd_rsp_ic = 1;
 				}
         }
@@ -1950,7 +1957,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 
 	if (!cmd_cfg_cont_splash)
 		pinfo->cont_splash_enabled = false;
-	/* OPPO 2013-12-09 yxq Add begin for disable continous display for ftm, rf, wlan mode */
+	/* 2013-12-09 Add begin for disable continous display for ftm, rf, wlan mode */
 #ifdef VENDOR_EDIT
 	if (cmd_cfg_cont_splash)
 		cont_splash_enabled = of_property_read_bool(node,
@@ -1965,10 +1972,10 @@ int mdss_dsi_panel_init(struct device_node *node,
 			cont_splash_enabled = false;
 		}
 #endif
-	/* OPPO 2013-12-09 yxq Add end */
+	/* 2013-12-09 Add end */
 #ifdef VENDOR_EDIT
 
-	/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/25  Add for ESD test */
+	/* Mobile Phone Software Dept.Driver, 2014/02/25  Add for ESD test */
 		cont_splash_flag = cont_splash_enabled;
 #endif /*VENDOR_EDIT*/
 	pr_info("%s: Continuous splash %s", __func__,

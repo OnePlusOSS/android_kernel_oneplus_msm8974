@@ -998,7 +998,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 
 //add by jch for otg swith retest id,2015-7-24
 #ifdef VENDOR_EDIT
-static void oem_ext_event_notify(struct usb_otg *otg,enum dwc3_ext_events event,enum dwc3_id_state id)
+static void oem_ext_event_notify(struct usb_otg *otg,enum dwc3_ext_events event,enum dwc3_id_state id, bool enable)
 {
 	static bool init;
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
@@ -1034,8 +1034,14 @@ static void oem_ext_event_notify(struct usb_otg *otg,enum dwc3_ext_events event,
 		if (pm_runtime_status_suspended(phy->dev)) {
 			dev_warn(phy->dev, "PHY_STATE event in LPM!!!!\n");
 			ret = pm_runtime_get(phy->dev);
-			if (ret < 0)
+			if (ret < 0){
 				dev_warn(phy->dev, "pm_runtime_get failed!!\n");
+				/*Anderson-TRD6690,TRD-6697+[*/
+				running = false;
+				otg_current_state = !enable;
+				return;
+				/*Anderson-TRD6690,TRD-6697+]*/
+			}
 		}
 		if (id == DWC3_ID_FLOAT) {
 			dev_dbg(phy->dev, "XCVR: ID set\n");
@@ -1075,6 +1081,7 @@ void enable_otg_event(bool enable )
 	struct usb_phy *otg_xceiv = gdotg->otg.phy;
 	enum dwc3_id_state id;
 	if(!ext_xceiv->id && otg_current_state!= enable){
+		printk("otg_new_state:%d otg_current_state:%d \n", otg_new_state,otg_current_state);
 		if (enable== true) {
 			id = DWC3_ID_GROUND;
 		} else {
@@ -1083,7 +1090,7 @@ void enable_otg_event(bool enable )
 		if (otg_xceiv){
 			otg_current_state = enable;
 			printk("enable_otg_event otg_current_state:%d \n",otg_current_state);
-			oem_ext_event_notify(otg_xceiv->otg, DWC3_EVENT_XCEIV_STATE,id);
+			oem_ext_event_notify(otg_xceiv->otg, DWC3_EVENT_XCEIV_STATE,id, enable);
 		}
 		else{
 			running = false;
@@ -1192,7 +1199,6 @@ static int otg_thread(void *arg)
 		wait_for_completion_timeout(&complet_dwc3, msecs_to_jiffies(1000));
 		INIT_COMPLETION(complet_dwc3);
 		if(otg_new_state != -1 && otg_current_state != otg_new_state){
-			printk(KERN_ERR "otg_new_state:%d otg_current_state:%d \n", otg_new_state,otg_current_state);
 			running = true;
 			otg_switch = otg_new_state;
 			enable_otg_event(otg_new_state);

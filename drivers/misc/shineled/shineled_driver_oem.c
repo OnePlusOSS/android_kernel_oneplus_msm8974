@@ -1167,7 +1167,7 @@ static int __init SN3193_dev_init(void)
 	}
 /*OPPO yuyi 2014-02-20 modified begin for SN3193 would not be used*/
 #ifndef VENDOR_EDIT
-	pr_info("yanghai shineld driver init\n");
+	pr_info("shineld driver init\n");
 	return i2c_add_driver(&SN3193_driver);
 #else
 	if(get_pcb_version() < HW_VERSION__20) {

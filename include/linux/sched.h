@@ -1274,6 +1274,10 @@ struct task_struct {
 //huruihuan add for kill task in D status
 	unsigned int kill_flag;
 #endif
+#ifdef VENDOR_EDIT
+//huruihuan add for regnoize game apps
+    unsigned int game_flag;
+#endif
 #ifdef CONFIG_SMP
 	struct llist_node wake_entry;
 	int on_cpu;

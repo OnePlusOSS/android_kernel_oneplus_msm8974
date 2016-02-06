@@ -42,6 +42,10 @@
 #include "kgsl_sync.h"
 #include "adreno.h"
 
+#ifdef VENDOR_EDIT
+//add by huruihuan for tradeoff performence and power
+#include <linux/oneplus.h>
+#endif
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
 
@@ -3684,6 +3688,18 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	char ustack[64];
 	void *uptr = NULL;
 
+#ifndef VENDOR_EDIT
+//huruihuan add for regnoize game apps
+    if(!current->group_leader->game_flag && (!memcmp(current->comm, "UnityMain", 9) 
+	    || !memcmp(current->comm, "GLThread", 8) || !memcmp(current->comm, "Thread", 6))
+        && memcmp(current->group_leader->comm, "system_server", 13))
+        {
+            if(governor_dynamic)
+                current->group_leader->game_flag = PROCESS_MAIN_THREAD;
+            current->game_flag = PROCESS_RENDER_THREAD;
+        }
+
+#endif
 	BUG_ON(dev_priv == NULL);
 
 	/* Workaround for an previously incorrectly defined ioctl code.

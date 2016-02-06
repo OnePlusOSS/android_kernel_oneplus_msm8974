@@ -2946,7 +2946,7 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 
 	disp_num = PP_BLOCK(config->block) - MDP_LOGICAL_BLOCK_DISP_0;
 #ifndef VENDOR_EDIT
-//LiQiu@oem.cn add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
+//add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
 	ret = pp_get_dspp_num(disp_num, &dspp_num);
 	if (ret) {
 		pr_err("%s, no dspp connects to disp %d", __func__, disp_num);
@@ -2964,14 +2964,14 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 	switch (PP_LOCAT(config->block)) {
 	case MDSS_PP_LM_CFG:
 #ifdef VENDOR_EDIT
-//LiQiu@oem.cn add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
+//add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
 	if (config->flags & MDP_PP_OPS_READ)
 #endif
 		argc_addr = mdss_mdp_get_mixer_addr_off(dspp_num) +
 			MDSS_MDP_REG_LM_GC_LUT_BASE;
 		pgc_ptr = &mdss_pp_res->argc_disp_cfg[disp_num];
 #ifndef VENDOR_EDIT
-//LiQiu@oem.cn add qcom patch for setting qdcm bypass mode not seccessful.
+//patch for setting qdcm bypass mode not seccessful.
 		if (config->flags & MDP_PP_OPS_WRITE)
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 				PP_FLAGS_DIRTY_ARGC;
@@ -2979,14 +2979,14 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 		break;
 	case MDSS_PP_DSPP_CFG:
 #ifdef VENDOR_EDIT
-//LiQiu@oem.cn add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
+//add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
 	if (config->flags & MDP_PP_OPS_READ)
 #endif
 		argc_addr = mdss_mdp_get_dspp_addr_off(dspp_num) +
 					MDSS_MDP_REG_DSPP_GC_BASE;
 		pgc_ptr = &mdss_pp_res->pgc_disp_cfg[disp_num];
 #ifndef VENDOR_EDIT
-//LiQiu@oem.cn add qcom patch for setting qdcm bypass mode not seccessful.
+//add qcom patch for setting qdcm bypass mode not successful.
 		if (config->flags & MDP_PP_OPS_WRITE)
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 				PP_FLAGS_DIRTY_PGC;
@@ -3081,7 +3081,7 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 		pgc_ptr->b_data =
 			&mdss_pp_res->gc_lut_b[disp_num][0];
 #ifdef VENDOR_EDIT
-//LiQiu@oem.cn add qcom patch for setting qdcm bypass mode not seccessful.
+//add qcom patch for setting qdcm bypass mode not successful.
         if (PP_LOCAT(config->block) == MDSS_PP_LM_CFG)
             mdss_pp_res->pp_disp_flags[disp_num] |=
                 PP_FLAGS_DIRTY_ARGC;

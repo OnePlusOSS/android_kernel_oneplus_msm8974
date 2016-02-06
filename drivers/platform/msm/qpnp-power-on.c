@@ -417,6 +417,9 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	switch (cfg->pon_type) {
 	case PON_KPDPWR:
 		pon_rt_bit = QPNP_PON_KPDPWR_N_SET;
+              #ifdef VENDOR_EDIT   //shankai@oem, add log for POWER_KEY, 2015-11-19
+               pr_err("%s:POWER_KEY is %s\n", __func__, (pon_rt_sts==1)?"DOWN":"UP");
+            #endif
 		break;
 	case PON_RESIN:
 		pon_rt_bit = QPNP_PON_RESIN_N_SET;

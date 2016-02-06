@@ -1,10 +1,10 @@
 /************************************************************
-* Copyright (c) 2013-2013 OPPO Mobile communication Corp.ltd.,
+* Copyright (c) 2013-2013 Mobile communication Corp.ltd.,
 * VENDOR_EDIT
 * Description: Simple driver for Texas Instruments LM3630 Backlight driver chip.
 * Version    : 1.0
 * Date       : 2013-12-09
-* Author     : yangxinqin
+* Author     :
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 as
@@ -22,12 +22,12 @@
 #include <linux/regmap.h>
 #include <linux/platform_data/lm3630_bl.h>
 #include <mach/gpio.h>
-/* OPPO 2013-10-24 yxq Add begin for backlight info */
+/* 2013-10-24Add begin for backlight info */
 #include <mach/device_info.h>
-/* OPPO 2013-10-24 yxq Add end */
-/* OPPO 2014-02-10 yxq Add begin for Find7S */
+/* 2013-10-24Add end */
+/* 2014-02-10Add begin for Find7S */
 #include <linux/pcb_version.h>
-/* OPPO 2014-02-10 yxq Add end */
+/* 2014-02-10Add end */
 #ifdef CONFIG_VENDOR_EDIT
 #include <linux/boot_mode.h>
 #include <linux/project_info.h>
@@ -42,17 +42,17 @@
 #define REG_PWM_OUTLOW	0x12
 #define REG_PWM_OUTHIGH	0x13
 #define REG_MAX		0x1F
-//yanghai add
+// add
 #define REG_MAXCU_A	0x05
 #define REG_MAXCU_B	0x06
-//yanghai add end
-/* OPPO 2013-10-24 yxq Add begin for backlight info */
+// add end
+/* 2013-10-24Add begin for backlight info */
 #define REG_REVISION 0x1F
-/* OPPO 2013-10-24 yxq Add end */
+/* 2013-10-24Add end */
 #define INT_DEBOUNCE_MSEC	10
 
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/03/10  Add for flicker in low backlight */
+/*Mobile Phone Software Dept.Driver, 2014/03/10  Add for flicker in low backlight */
 static bool pwm_flag = true;
 static int backlight_level;
 extern int cabc_mode;
@@ -99,7 +99,7 @@ static int lm3630_chip_init(struct lm3630_chip_data *pchip)
 	ret = regmap_update_bits(pchip->regmap, REG_CONFIG, 0x07, reg_val);
 	if (ret < 0)
 		goto out;
-    /* For normal mode, enable pwm control by Xinqin.Yang@PhoneSW.Driver, 2013/12/20 */
+    /* For normal mode, enable pwm control byPhoneSW.Driver, 2013/12/20 */
     //if (get_pcb_version() < HW_VERSION__20) { /* For Find7 */
         if (get_boot_mode() == MSM_BOOT_MODE__NORMAL) {
         	ret = regmap_update_bits(pchip->regmap, REG_CONFIG, 0x01, 0x01);
@@ -110,13 +110,13 @@ static int lm3630_chip_init(struct lm3630_chip_data *pchip)
 
 #ifdef CONGIF_OPPO_CMCC_OPTR
     reg_val = 0x12; /* For 13077 CMCC */
-    if ((get_pcb_version() >= 20)&&(get_pcb_version() < 30)) {/*liuyan add for N3*/	
+    if ((get_pcb_version() >= 20)&&(get_pcb_version() < 30)) {/* add for N3*/
         reg_val = 0x0F; /* For 13097 cmcctest */
     } else {
         reg_val = 0x12; /* For 13077 cmcc test */
     }
 #else
-    if ((get_pcb_version() >= 20)&&(get_pcb_version() < 30)) {/*liuyan add for N3*/
+    if ((get_pcb_version() >= 20)&&(get_pcb_version() < 30)) {/* add for N3*/
 
         reg_val = 0x12; /* For 13097 low power version */
     } else {
@@ -420,7 +420,7 @@ static void lm3630_backlight_unregister(struct lm3630_chip_data *pchip)
 	pr_debug("%s: bl=%d\n", __func__,bl_level);
 #ifdef VENDOR_EDIT
 
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/28  Add for add log for 14001 black screen */
+/*Mobile Phone Software Dept.Driver, 2014/04/28  Add for add log for 14001 black screen */
 		if(pre_brightness == 0)
 			{pr_err("%s set brightness :  %d \n",__func__,bl_level);}
 		pre_brightness=bl_level;
@@ -431,7 +431,7 @@ static void lm3630_backlight_unregister(struct lm3630_chip_data *pchip)
 		return -ENOMEM;
 		}
     if (!pchip->regmap || !lm3630_pchip->regmap) {
-        pr_err("%s YXQ pchip->regmap is NULL.\n", __func__);
+        pr_err("%spchip->regmap is NULL.\n", __func__);
         return bl_level;
     }
 
@@ -453,7 +453,7 @@ static void lm3630_backlight_unregister(struct lm3630_chip_data *pchip)
 #ifndef VENDOR_EDIT
 
 
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/24  Modify for backlight flick when disable pwm */
+/*Mobile Phone Software Dept.Driver, 2014/04/24  Modify for backlight flick when disable pwm */
 		ret = regmap_write(pchip->regmap,
 				   REG_BRT_A, bl_level);
 #else /*VENDOR_EDIT*/
@@ -463,7 +463,7 @@ static void lm3630_backlight_unregister(struct lm3630_chip_data *pchip)
 			ret = regmap_write(pchip->regmap,
 				   REG_BRT_A, bl_level);
 			}
-		else if((get_pcb_version() < 20)||(get_pcb_version() >=30))/*liuyan add 30 for N3*/
+		else if((get_pcb_version() < 20)||(get_pcb_version() >=30))/* add 30 for N3*/
 			{
 
 
@@ -482,7 +482,7 @@ static void lm3630_backlight_unregister(struct lm3630_chip_data *pchip)
 #ifdef VENDOR_EDIT
 
 
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/03/10  Add for flicker in low backlight */
+/*Mobile Phone Software Dept.Driver, 2014/03/10  Add for flicker in low backlight */
 		backlight_level =  bl_level;
 		if(bl_level <= 0x14 && pwm_flag==true){
 			set_backlight_pwm(0);
@@ -512,7 +512,7 @@ static int lm3630_dt(struct device *dev, struct lm3630_platform_data *pdata)
 	u32 temp_val;
 	int rc;
 	struct device_node *np = dev->of_node;
-//		dev_err(dev, "yanghai read \n");
+//		dev_err(dev, " read \n");
 
 		rc = of_property_read_u32(np, "ti,bank-a-ctrl", &temp_val);
 		if (rc) {
@@ -591,7 +591,7 @@ static int lm3630_dt(struct device *dev, struct lm3630_platform_data *pdata)
 #endif
 
 #ifdef CONFIG_VENDOR_EDIT
-/* OPPO zhanglong add 2013-08-30 for ftm test LCD backlight */
+/* add 2013-08-30 for ftm test LCD backlight */
 static ssize_t ftmbacklight_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -612,7 +612,7 @@ static ssize_t ftmbacklight_store(struct device *dev,
     return count;
 }
     DEVICE_ATTR(ftmbacklight, 0644, NULL, ftmbacklight_store);
-/* OPPO zhanglong add 2013-08-30 for ftm test LCD backlight end */
+/* add 2013-08-30 for ftm test LCD backlight end */
 #endif //CONFIG_VENDOR_EDIT
 
 #define LM3630_ENABLE_GPIO   91
@@ -622,11 +622,11 @@ static int lm3630_probe(struct i2c_client *client,
 	struct lm3630_platform_data *pdata = client->dev.platform_data;
 	struct lm3630_chip_data *pchip;
 	int ret;
-/* OPPO 2013-10-24 yxq Add begin for backlight info */
+/* 2013-10-24Add begin for backlight info */
     unsigned int revision;
     static char *temp;
-/* OPPO 2013-10-24 yxq Add end */
-	printk("%s:yanghai.\n", __func__);
+/* 2013-10-24Add end */
+	printk("%s:.\n", __func__);
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev,
 			sizeof(struct lm3630_platform_data), GFP_KERNEL);
@@ -682,7 +682,7 @@ static int lm3630_probe(struct i2c_client *client,
 
 	/* chip initialize */
 	ret = lm3630_chip_init(pchip);
-/* OPPO 2013-10-24 yxq Add begin for reason */
+/* 2013-10-24Add begin for reason */
     regmap_read(pchip->regmap,REG_REVISION,&revision);
     if (revision == 0x02) {
         temp = "02";
@@ -691,7 +691,7 @@ static int lm3630_probe(struct i2c_client *client,
     }
     register_device_proc("backlight", temp, "LM3630A");
     push_component_info(BACKLIGHT, temp, "LM3630A");
-/* OPPO 2013-10-24 yxq Add end */
+/* 2013-10-24Add end */
 	if (ret < 0) {
 		dev_err(&client->dev, "fail : init chip\n");
 		goto err_chip_init;
@@ -725,21 +725,21 @@ static int lm3630_probe(struct i2c_client *client,
 
 	/* interrupt enable  : irq 0 is not allowed for lm3630 */
 	pchip->irq = client->irq;
-	printk("%s:yanghai client irq =%d\n", __func__,client->irq);
+	printk("%s: client irq =%d\n", __func__,client->irq);
 	pchip->irq=0;
 	if (pchip->irq)
 		lm3630_intr_config(pchip);
-	printk("%s:yanghai----\n", __func__);
+	printk("%s:----\n", __func__);
 	dev_err(&client->dev, "LM3630 backlight register OK.\n");
 
 #ifdef CONFIG_VENDOR_EDIT
 
-/* OPPO zhanglong add 2013-08-30 for ftm test LCD backlight */
+/* add 2013-08-30 for ftm test LCD backlight */
     ret = device_create_file(&client->dev, &dev_attr_ftmbacklight);
 	if (ret < 0) {
 		dev_err(&client->dev, "failed to create node ftmbacklight\n");
 	}
-/* OPPO zhanglong add 2013-08-30 for ftm test LCD backlight end */
+/* add 2013-08-30 for ftm test LCD backlight end */
 #endif //CONFIG_VENDOR_EDIT
 
 	return 0;
@@ -763,9 +763,9 @@ static int lm3630_remove(struct i2c_client *client)
 	int ret;
 	struct lm3630_chip_data *pchip = i2c_get_clientdata(client);
 #ifdef CONFIG_VENDOR_EDIT
-/* OPPO zhanglong add 2013-08-30 for ftm test LCD backlight */
+/* add 2013-08-30 for ftm test LCD backlight */
     device_remove_file(&client->dev, &dev_attr_ftmbacklight);
-/* OPPO zhanglong add 2013-08-30 for ftm test LCD backlight end */
+/* add 2013-08-30 for ftm test LCD backlight end */
 #endif //CONFIG_VENDOR_EDIT
 
 	ret = regmap_write(pchip->regmap, REG_BRT_A, 0);
@@ -835,7 +835,7 @@ static int lm3630_resume(struct i2c_client *client)
 }
 
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/05/22  Add for reduce current when charge */
+/*Mobile Phone Software Dept.Driver, 2014/05/22  Add for reduce current when charge */
 void lm3630_reduce_max_current(void)
 {
 	if(lm3630_pchip == NULL) return;
@@ -855,7 +855,7 @@ void lm3630_recover_max_current(void)
 
 
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+/*Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
 int set_backlight_pwm(int state)
 {
     int rc = 0;

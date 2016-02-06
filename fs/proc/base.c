@@ -90,6 +90,12 @@
 #include <trace/events/oom.h>
 #include "internal.h"
 
+#ifdef VENDOR_EDIT
+//huruihuan add for regnoize game apps
+#include <linux/sched.h>
+#endif
+
+
 /* NOTE:
  *	Implementing inode permission operations in /proc is almost
  *	certainly an error.  Permission checks need to happen during
@@ -2809,6 +2815,56 @@ static const struct inode_operations proc_self_inode_operations = {
 	.put_link	= proc_self_put_link,
 };
 
+//#ifdef VENDOR_EDIT
+//MaJunhai@OnePlus..MultiMediaService,2015/11/24, add /proc/process/task/taskid/cpuid || /proc/process/cpuid for perfLock
+static ssize_t proc_cpuid_read(struct file * file, char __user * buf,
+                  size_t count, loff_t *ppos)
+{
+    unsigned int cpuid;
+    unsigned long flags;
+    struct inode * inode = file->f_path.dentry->d_inode;
+    struct task_struct *task = get_proc_task(inode);
+    ssize_t length;
+    char tmpbuf[TMPBUFLEN];
+
+    if (!task)
+        return -ESRCH;
+
+    /* get thread cpu id */
+    //get_online_cpus();
+    //rcu_read_lock();
+
+    //task = pid ? find_task_by_vpid(pid) : current;
+    //if (!p) {
+    //  rcu_read_unlock();
+    //  put_online_cpus();
+    //  return -ESRCH;
+    //}
+
+    raw_spin_lock_irqsave(&task->pi_lock, flags);
+
+#ifdef CONFIG_SMP
+    smp_rmb();
+    cpuid = task_thread_info(task)->cpu;
+#endif
+    raw_spin_unlock_irqrestore(&task->pi_lock, flags);
+
+    //put_task_struct(p);
+    //put_online_cpus();
+    //printk("cpuid %d\n", cpuid);
+
+    length = scnprintf(tmpbuf, TMPBUFLEN, "%u\n",
+                cpuid);
+    put_task_struct(task);
+    return simple_read_from_buffer(buf, count, ppos, tmpbuf, length);
+}
+
+static const struct file_operations proc_cpuid_operations = {
+    .read       = proc_cpuid_read,
+    .llseek     = generic_file_llseek,
+};
+//endif
+
 /*
  * proc base
  *
@@ -2970,6 +3026,15 @@ static int proc_pid_personality(struct seq_file *m, struct pid_namespace *ns,
 	return err;
 }
 
+#ifdef VENDOR_EDIT
+//huruihuan add for regnoize game apps
+static int proc_pid_gameflag(struct seq_file *m, struct pid_namespace *ns,
+				struct pid *pid, struct task_struct *task)
+{
+    seq_printf(m, "%d\n", task->game_flag);
+    return 0;
+}
+#endif
 /*
  * Thread groups
  */
@@ -2991,6 +3056,10 @@ static const struct pid_entry tgid_base_stuff[] = {
 	INF("auxv",       S_IRUSR, proc_pid_auxv),
 	ONE("status",     S_IRUGO, proc_pid_status),
 	ONE("personality", S_IRUGO, proc_pid_personality),
+#ifdef VENDOR_EDIT
+//huruihuan add for regnoize game apps
+    ONE("gameflag", S_IRUGO, proc_pid_gameflag),
+#endif
 	INF("limits",	  S_IRUGO, proc_pid_limits),
 #ifdef CONFIG_SCHED_DEBUG
 	REG("sched",      S_IRUGO|S_IWUSR, proc_pid_sched_operations),
@@ -3061,6 +3130,10 @@ static const struct pid_entry tgid_base_stuff[] = {
 #ifdef CONFIG_HARDWALL
 	INF("hardwall",   S_IRUGO, proc_pid_hardwall),
 #endif
+    //#ifdef VENDOR_EDIT
+    //MaJunhai@OnePlus..MultiMediaService,2015/11/24, add /proc/process/task/taskid/cpuid || /proc/process/cpuid for perfLock
+    REG("cpuid",  S_IRUGO, proc_cpuid_operations),
+    //#endif
 };
 
 static int proc_tgid_base_readdir(struct file * filp,
@@ -3353,6 +3426,10 @@ static const struct pid_entry tid_base_stuff[] = {
 	INF("auxv",      S_IRUSR, proc_pid_auxv),
 	ONE("status",    S_IRUGO, proc_pid_status),
 	ONE("personality", S_IRUGO, proc_pid_personality),
+#ifdef VENDOR_EDIT
+//huruihuan add for regnoize game apps
+    ONE("gameflag", S_IRUGO, proc_pid_gameflag),
+#endif
 	INF("limits",	 S_IRUGO, proc_pid_limits),
 #ifdef CONFIG_SCHED_DEBUG
 	REG("sched",     S_IRUGO|S_IWUSR, proc_pid_sched_operations),
@@ -3416,6 +3493,10 @@ static const struct pid_entry tid_base_stuff[] = {
 #ifdef CONFIG_HARDWALL
 	INF("hardwall",   S_IRUGO, proc_pid_hardwall),
 #endif
+    //#ifdef VENDOR_EDIT
+    //MaJunhai@OnePlus..MultiMediaService,2015/11/24, add /proc/process/task/taskid/cpuid || /proc/process/cpuid for perfLock
+    REG("cpuid",  S_IRUGO, proc_cpuid_operations),
+    //#endif
 };
 
 static int proc_tid_base_readdir(struct file * filp,

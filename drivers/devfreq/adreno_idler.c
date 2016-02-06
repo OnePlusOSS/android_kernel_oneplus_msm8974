@@ -36,11 +36,13 @@
 #define ADRENO_IDLER_MAJOR_VERSION 1
 #define ADRENO_IDLER_MINOR_VERSION 1
 
+extern int devfreq_get_freq_level(struct devfreq *devfreq, unsigned long freq);
+
 /* stats.busy_time threshold for determining if the given workload is idle.
    Any workload higher than this will be treated as a non-idle workload.
    Adreno idler will more actively try to ramp down the frequency
    if this is set to a higher value. */
-static unsigned long idleworkload = 5000;
+static unsigned long idleworkload = 4325;
 module_param_named(adreno_idler_idleworkload, idleworkload, ulong, 0664);
 
 /* Number of events to wait before ramping down the frequency.
@@ -65,8 +67,22 @@ static unsigned int idlecount = 0;
 int adreno_idler(struct devfreq_dev_status stats, struct devfreq *devfreq,
 		 unsigned long *freq)
 {
+	unsigned long cur_freq;
+	int freq_level;
+
 	if (!adreno_idler_active)
 		return 0;
+
+	devfreq->profile->get_cur_freq(devfreq->dev.parent, &cur_freq);
+	freq_level = devfreq_get_freq_level(devfreq, cur_freq);
+
+	/* 1. Idler will not be applied with highest freq level */
+	/* 2. Define another threshold (idleworkload * 0.75) for lowest freq level to turnover */
+	if (freq_level == 0 ||
+		(freq_level == (devfreq->profile->max_state - 1) && stats.busy_time > (idleworkload * 3 / 4))) {
+		idlecount = 0;
+		return 0;
+	}
 
 	if (stats.busy_time < idleworkload) {
 		/* busy_time >= idleworkload should be considered as a non-idle workload. */
@@ -79,9 +95,12 @@ int adreno_idler(struct devfreq_dev_status stats, struct devfreq *devfreq,
 		if (idlecount >= idlewait &&
 		    stats.busy_time * 100 < stats.total_time * downdifferential) {
 			/* We are idle for (idlewait + 1)'th time! Ramp down the frequency now. */
-			*freq = devfreq->profile->freq_table[devfreq->profile->max_state - 1];
-			idlecount--;
-			return 1;
+			/* If we're not at lowest freq, then we step one level down */
+			if (freq_level <  (devfreq->profile->max_state - 1)) {
+				*freq = devfreq->profile->freq_table[freq_level + 1];
+				idlecount = 0;
+				return 1;
+			}
 		}
 	} else {
 		idlecount = 0;

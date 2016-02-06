@@ -334,7 +334,7 @@ obj-$(CONFIG_ARCH_MSM8960)	+= devices-iommu.o
 obj-$(CONFIG_ARCH_MSM8930)	+= devices-iommu.o
 obj-$(CONFIG_ARCH_MSM8064)	+= devices-iommu.o
 endif
-ifdef ($(OEM_BUILD_TYPE),release)
+ifeq ($(OEM_BUILD_TYPE),release)
 ccflags-y += -DRELEASE_DOWNLOAD_MODE_SET
 endif
 obj-$(CONFIG_MSM_EVENT_TIMER)		+= event_timer.o

@@ -303,7 +303,7 @@ struct kobj_attribute ftmmode_attr = {
 
 
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
+/* Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
 int gamma_index = 0;
 int __init  board_gamma_index_init(void)
 {
@@ -363,7 +363,7 @@ static ssize_t closemodem_store(struct kobject *kobj, struct kobj_attribute *att
 }
 
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/15  Add for find7s swap DSI port */
+/*Mobile Phone Software Dept.Driver, 2014/04/15  Add for find7s swap DSI port */
 int LCD_id = 0;
 int __init  board_LCD_id_index_init(void)
 {	
@@ -371,7 +371,7 @@ int __init  board_LCD_id_index_init(void)
 		LCD_id = 2;
 	else if (strstr(boot_command_line," LCD_id=4"))
 		LCD_id = 4;
-	pr_info("board_LCD_id_init, " "LCD_id= %d yxr\n", LCD_id);
+	pr_info("board_LCD_id_init, " "LCD_id= %d\n", LCD_id);
 
 	return 0;
 }
@@ -395,7 +395,7 @@ static struct attribute * g[] = {
 #endif
 /* yuyi 2013-07-15 add end*/
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma_correction */
+/* Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma_correction */
 	&gamma_index_attr.attr,
 #endif /*VENDOR_EDIT*/
 	NULL,
@@ -593,12 +593,12 @@ void __init msm8974_init(void)
 /* yuyi 2013-07-15 add end for version*/
 
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
+/* Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
 	board_gamma_index_init();
 #endif /*VENDOR_EDIT*/
 
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/15  Add for find7s swap port */
+/* Mobile Phone Software Dept.Driver, 2014/04/15  Add for find7s swap port */
 board_LCD_id_index_init();
 #endif /*VENDOR_EDIT*/
 

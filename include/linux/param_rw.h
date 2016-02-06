@@ -17,13 +17,18 @@ typedef struct
 typedef struct
 {
     param_product_desc_head_t sid_head;
-    char project_name[8];  //14049
+    char project_name[8];  //15055
     int hw_version;             //11
     int rf_version;
     char rf_config_str[16];
     int operator_num;
     char operator_str[16];
-    char pcba_number[16];
+    char pcba_number[28];
+    int imei_num; //the number of imei
+    char imei_0[16];
+    char meid_0[16];
+    char imei_1[16];
+    char meid_1[16];
 }param_product_t;
 
 typedef struct
@@ -97,7 +102,7 @@ typedef struct
 {
     param_product_desc_head_t sid_head;
     int is_rooted;
-    int root_time;
+    int fastboot_type; //fastboot operation,none op: 0,flash: 1, erase: 2
     char flash_0[16]; //the recently flashed partition
     char flash_1[16]; //the next-recently flashed partition
     char flash_2[16]; //the third recently flashed partition

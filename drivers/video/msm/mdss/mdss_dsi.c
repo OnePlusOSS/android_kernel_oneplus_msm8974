@@ -28,18 +28,18 @@
 #include "mdss_debug.h"
 
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/11  Add for AT current for find7s */
+/* Mobile Phone Software Dept.Driver, 2014/04/11  Add for AT current for find7s */
 #include <linux/boot_mode.h>
 #endif /*VENDOR_EDIT*/
-
-/* OPPO 2014-02-10 yxq Added begin for Find7S */
+#ifdef VENDOR_EDIT
+/* 2014-02-10 Added begin for Find7S */
 #include <linux/pcb_version.h>
-/* OPPO 2014-02-10 yxq Added end */
-/* OPPO 2013-11-20 yxq Add begin for compatible cmd mode and video mode */
+/* 2014-02-10 Added end */
+/* 2013-11-20 Add begin for compatible cmd mode and video mode */
 #define COMMAND_MODE_ENABLE
-/* OPPO 2013-11-20 yxq Add end */
+/* 2013-11-20 Add end */
 //static unsigned char *mdss_dsi_base;
-
+#endif
 bool state_suspended;
 
 #ifdef VENDOR_EDIT
@@ -127,7 +127,7 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 			goto error;
 		}
 #ifndef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/02  Modify for probabilistic blurred screen for find7s */
+/* Mobile Phone Software Dept.Driver, 2014/04/02  Modify for probabilistic blurred screen for find7s */
 		ret = msm_dss_enable_vreg(
 			ctrl_pdata->power_data.vreg_config,
 			ctrl_pdata->power_data.num_vreg, 0);
@@ -198,7 +198,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 
 	mp->num_vreg = 0;
 #ifndef CONFIG_VENDOR_EDIT
-/* Xinqin.Yang@PhoneSW.Driver, 2014/02/10  Modify for Find7S */
+/* PhoneSW.Driver, 2014/02/10  Modify for Find7S */
 	for_each_child_of_node(of_node, supply_node) {
 		if (!strncmp(supply_node->name, "qcom,platform-supply-entry",
 						26))
@@ -211,7 +211,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
                             26) && strncmp(supply_node->name, "qcom,platform-supply-entry1", 27))
                 ++mp->num_vreg;
         }
-    }else if ((get_pcb_version() < HW_VERSION__20)||(get_pcb_version() >= HW_VERSION__30)) { /* For Find7 liuyan add 30 for N3*/
+    }else if ((get_pcb_version() < HW_VERSION__20)||(get_pcb_version() >= HW_VERSION__30)) { /* For Find7 add 30 for N3*/
         for_each_child_of_node(of_node, supply_node) {
             if (!strncmp(supply_node->name, "qcom,platform-supply-entry",
                             26))
@@ -245,8 +245,8 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 						26)) {
 			const char *st = NULL;
 #ifdef CONFIG_VENDOR_EDIT
-            /* Xinqin.Yang@PhoneSW.Driver, 2014/02/10  Add for Find7S */
-            if (is_15055_project() || ((get_pcb_version() >= HW_VERSION__20)&&(get_pcb_version() < HW_VERSION__30))) {/*liuyan add 30 for N3*/
+            /* PhoneSW.Driver, 2014/02/10  Add for Find7S */
+            if (is_15055_project() || ((get_pcb_version() >= HW_VERSION__20)&&(get_pcb_version() < HW_VERSION__30))) {/*add 30 for N3*/
                 if (!strncmp(supply_node->name, "qcom,platform-supply-entry1", 27)){
                     continue;
                 }
@@ -959,7 +959,7 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 				ctrl_pdata, ctrl_pdata->ndx);
 
 #ifndef CONFIG_VENDOR_EDIT
-/* Xinqin.Yang@PhoneSW.Driver, 2013/12/26  Delete for panel had initialized */
+/* PhoneSW.Driver, 2013/12/26  Delete for panel had initialized */
 	WARN((ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT),
 		"Incorrect Ctrl state=0x%x\n", ctrl_pdata->ctrl_state);
 #endif /*CONFIG_VENDOR_EDIT*/
@@ -1145,12 +1145,12 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		state_suspended = true;
 		break;
 	case MDSS_EVENT_CONT_SPLASH_FINISH:
-	/* OPPO 2013-10-18 yxq added begin for continous splash */
+	/* 2013-10-18 added begin for continous splash */
 #ifdef VENDOR_EDIT
 		pr_err("%s: MDSS_EVENT_CONT_SPLASH_FINISH\n", __func__);
 		mdss_dsi_on(pdata);
 #endif
-/* OPPO 2013-10-18 yxq added end */
+/* 2013-10-18 added end */
 		if (ctrl_pdata->off_cmds.link_state == DSI_LP_MODE)
 			rc = mdss_dsi_blank(pdata);
 		ctrl_pdata->ctrl_state &= ~CTRL_STATE_MDP_ACTIVE;
@@ -1174,7 +1174,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 			/* Panel is Enabled in Bootloader */
 			rc = mdss_dsi_blank(pdata);
 		}
-/* OPPO 2013-10-18 yxq added begin for continous splash */
+/* 2013-10-18 added begin for continous splash */
 #ifdef VENDOR_EDIT
 		 mdss_dsi_off(pdata);
 #endif
@@ -1689,7 +1689,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
     if (gpio_is_valid(ctrl_pdata->esd_check_gpio)){
         rc = gpio_request(ctrl_pdata->esd_check_gpio, "disp_esd");
 		if (rc) {
-			pr_err("yanghai request ESD gpio failed, rc=%d\n",
+			pr_err(" request ESD gpio failed, rc=%d\n",
 			       rc);
 			return -ENODEV;
 		}
@@ -1764,14 +1764,14 @@ int dsi_panel_device_register(struct device_node *pan_node,
 							__func__, __LINE__);
 	} else {
 #ifdef VENDOR_EDIT
-/* OPPO 2014-02-21 yxq add begin for Find7S */
+/* 2014-02-21 add begin for Find7S */
 	ctrl_pdata->disp_te_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 						"qcom,platform-te-gpio", 0);
 		ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);
 		ctrl_pdata->disp_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 		"qcom,platform-enable-gpio", 0);
-/* OPPO 2014-02-11 yxq add end */
+/* 2014-02-11 add end */
 #endif
 		ctrl_pdata->mode_gpio = -EINVAL;
 	}

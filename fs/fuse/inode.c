@@ -887,6 +887,13 @@ static void process_init_reply(struct fuse_conn *fc, struct fuse_req *req)
 				if (arg->flags & FUSE_EXPORT_SUPPORT)
 					fc->export_support = 1;
 			}
+#ifdef VENDOR_EDIT/*Add by liwei*/
+			if (arg->flags & FUSE_SHORTCIRCUIT) {
+				//fc->writeback_cache = 0;
+				fc->shortcircuit_io = 1;
+				pr_info("FUSE: SHORTCIRCUIT enabled [%s : %d]!\n",current->comm, current->pid);
+			}
+#endif
 			if (arg->flags & FUSE_BIG_WRITES)
 				fc->big_writes = 1;
 			if (arg->flags & FUSE_DONT_MASK)

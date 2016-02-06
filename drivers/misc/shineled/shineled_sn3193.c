@@ -1068,7 +1068,7 @@ static int __init SN3193_dev_init(void)
 		ret = -ENOMEM;
 		goto err_exit;
 	}
-	pr_info("yanghai shineld driver init\n");
+	pr_info("shineld driver init\n");
 	return i2c_add_driver(&SN3193_driver);
 err_exit:
 	return ret;

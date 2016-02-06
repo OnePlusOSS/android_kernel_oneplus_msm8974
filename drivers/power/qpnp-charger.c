@@ -329,6 +329,12 @@ struct qpnp_chg_chip {
 	bool				chg_show_temp;
 #endif	
 	bool				chg_done;
+#ifdef CONFIG_VENDOR_EDIT
+	// add by xcb
+	int				chg_status;
+
+#endif
+
 	bool				charger_monitor_checked;
 	bool				usb_present;
 	u8				usbin_health;
@@ -1986,6 +1992,10 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
 			qpnp_chg_iusb_trim_set(chip, chip->usb_trim_default);
 			chip->prev_usb_max_ma = -EINVAL;
+                        
+                        schedule_delayed_work(&chip->eoc_work,
+                            msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
+                        pm_stay_awake(chip->dev);
 		} else {
 			/* when OVP clamped usbin, and then decrease
 			 * the charger voltage to lower than the OVP
@@ -3339,6 +3349,13 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 			&& get_prop_capacity(chip) < 100) {
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		}
+
+		if (val->intval == POWER_SUPPLY_STATUS_FULL && chip->chg_status != POWER_SUPPLY_STATUS_FULL) {
+			power_supply_changed(&chip->batt_psy);
+			pr_info("power_supply_changed: POWER_SUPPLY_STATUS_FULL\n");
+		}
+	
+		chip->chg_status = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_DONE:
 		val->intval = (int)chip->chg_done;
@@ -5028,6 +5045,7 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 			qpnp_chg_set_appropriate_vbatdet(chip);
 			qpnp_chg_set_appropriate_vddmax(chip);
 			qpnp_chg_set_appropriate_battery_current(chip);
+			schedule_work(&chip->soc_check_work);
 		}
 
 		power_supply_changed(&chip->batt_psy);

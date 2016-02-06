@@ -3051,7 +3051,7 @@ static const struct snd_kcontrol_new set_dirac_enable_param_to_set_controls[] = 
 	               0, 1, 0, msm_routing_get_dirac_enable_param_control,
 	               msm_routing_put_dirac_enable_param_control),
 	SOC_SINGLE_EXT("Select Dirac Headset", SND_SOC_NOPM ,
-	               0, 2, 0, msm_routing_get_dirac_headset_param_control,
+	               0, 4, 0, msm_routing_get_dirac_headset_param_control,
 	               msm_routing_put_dirac_headset_param_control),	
 };
 #endif/*VENDOR_EDIT*/

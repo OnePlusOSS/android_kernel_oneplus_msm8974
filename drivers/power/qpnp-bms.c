@@ -1170,6 +1170,9 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		raw->last_good_ocv_uv = chip->last_ocv_uv;
 		chip->new_battery = false;
 	} else if (chip->done_charging) {
+#ifdef CONFIG_VENDOR_EDIT
+		int ibat_ua, vbat_uv;
+#endif
 		chip->done_charging = false;
 		/* if we just finished charging, reset CC and fake 100% */
 		chip->ocv_reading_at_100 = raw->last_good_ocv_raw;
@@ -1182,7 +1185,13 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		chip->software_cc_uah = 0;
 		chip->software_shdw_cc_uah = 0;
 		chip->last_cc_uah = INT_MIN;
-		pr_debug("EOC Battery full ocv_reading = 0x%x\n",
+#ifdef CONFIG_VENDOR_EDIT
+		get_simultaneous_batt_v_and_i(chip, &ibat_ua, &vbat_uv);
+
+		pr_info("EOC Battery full vbat_uv = %d, ibat_ua = %d, batt_temp = %d, last_soc = %d, calculated_soc = %d\n",
+				vbat_uv, ibat_ua, batt_temp, chip->last_soc, chip->calculated_soc);
+#endif
+		pr_info("EOC Battery full ocv_reading = 0x%x\n",
 				chip->ocv_reading_at_100);
 	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
 		convert_and_store_ocv(chip, raw, batt_temp, false);
@@ -1998,9 +2007,6 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 			soc_change = min((int)abs(chip->last_soc - soc),
 					time_since_last_change_sec / soc_change_per_sec);
 
-			if (chip->last_soc == 100 && soc > 95 && soc_change > 0) {
-				soc_change = 1;
-			}
 		}
 //
 		else {
@@ -3640,7 +3646,10 @@ static void battery_status_check(struct qpnp_bms_chip *chip)
 		} else if (chip->battery_status
 				== POWER_SUPPLY_STATUS_FULL) {
 			pr_info("battery not full any more\n");
-
+#ifdef CONFIG_VENDOR_EDIT
+			get_current_time(&(chip->last_recalc_time));
+			chip->last_soc_change_sec = chip->last_recalc_time;
+#endif
 			disable_bms_irq(&chip->ocv_thr_irq);
 			disable_bms_irq(&chip->sw_cc_thr_irq);
 		}
@@ -3716,7 +3725,9 @@ static void battery_insertion_check(struct qpnp_bms_chip *chip)
 /* Returns capacity as a SoC percentage between 0 and 100 */
 static int get_prop_bms_capacity(struct qpnp_bms_chip *chip)
 {
+
 	return report_state_of_charge(chip);
+
 }
 
 static void qpnp_bms_external_power_changed(struct power_supply *psy)

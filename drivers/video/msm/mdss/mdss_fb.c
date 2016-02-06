@@ -307,7 +307,7 @@ static void mdss_fb_parse_dt(struct msm_fb_data_type *mfd)
 	struct platform_device *pdev = mfd->pdev;
 
 #ifndef CONFIG_VENDOR_EDIT
-/* Xinqin.Yang@PhoneSW.Driver, 2014/02/10  Modify for Find7S */
+/* PhoneSW.Driver, 2014/02/10  Modify for Find7S */
 	of_property_read_u32_array(pdev->dev.of_node,
 		"qcom,mdss-fb-split", data, 2);
 
@@ -327,7 +327,7 @@ static void mdss_fb_parse_dt(struct msm_fb_data_type *mfd)
 			mfd->split_fb_left = mfd->split_fb_right = 0;
 	}
 #else /*CONFIG_VENDOR_EDIT*/
-	if ((get_pcb_version() < HW_VERSION__20)||(get_pcb_version() >= HW_VERSION__30)) { /* Find7 ,liuyan add 30 for N3*/
+	if ((get_pcb_version() < HW_VERSION__20)||(get_pcb_version() >= HW_VERSION__30)) { /* Find7 add 30 for N3*/
 	of_property_read_u32_array(pdev->dev.of_node,
 		"qcom,mdss-fb-split", data, 2);
 
@@ -449,20 +449,20 @@ static ssize_t mdss_fb_get_idle_notify(struct device *dev,
 
 	return ret;
 }
-/* OPPO 2013-11-26 yxq Add begin for suspend the device */
+/* 2013-11-26 Add begin for suspend the device */
 #ifdef VENDOR_EDIT
 extern bool is_15055_project(void);
 extern struct mdss_dsi_ctrl_pdata *panel_data;
 static ssize_t mdss_mdp_lcdoff_event(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	if((get_pcb_version() >= HW_VERSION__20)&&(get_pcb_version() < HW_VERSION__30)){/*liuyan add 30 for N3*/
+	if((get_pcb_version() >= HW_VERSION__20)&&(get_pcb_version() < HW_VERSION__30)){/*add 30 for N3*/
 		struct mdss_panel_data * pdata;
 		int rc;
-		pr_err("find7s yxr\n");
+		pr_err("find7s \n");
 		pdata = &panel_data->panel_data;
 		do {
-			pr_err("pdata = %x yxr\n",(u32)pdata);
+			pr_err("pdata = %x \n",(u32)pdata);
 			if (pdata->event_handler)
 				rc = pdata->event_handler(pdata, MDSS_EVENT_PANEL_OFF, NULL);
 			pdata = pdata->next;
@@ -471,7 +471,7 @@ static ssize_t mdss_mdp_lcdoff_event(struct device *dev,
 	}else{
 		struct fb_info *fbi = dev_get_drvdata(dev);
     	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
-  	    pr_err("%s YXQ mfd=0x%p\n", __func__, mfd);
+        pr_err("%smfd=0x%p\n", __func__, mfd);
 		if (!mfd)
 			return -ENODEV;
 		if (is_15055_project()){
@@ -483,9 +483,9 @@ static ssize_t mdss_mdp_lcdoff_event(struct device *dev,
 	}
 }
 #endif
-/* OPPO 2013-11-26 yxq Add end */
+/* 2013-11-26 Add end */
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
+/* Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
 extern int set_gamma(int index);
 
 extern int gamma_index;
@@ -506,7 +506,7 @@ static ssize_t mdss_set_gamma(struct device *dev,
 	else{
 		strcpy(a,buf);
 		pr_err("%s \n",a);
-		if((get_pcb_version() < 20)||(get_pcb_version() >=30))/*liuyan add for N3*/
+		if((get_pcb_version() < 20)||(get_pcb_version() >=30))/*add for N3*/
 		send_user_defined_gamma(a);
 	}
     return count;
@@ -525,7 +525,7 @@ static ssize_t mdss_get_gamma(struct device *dev,
 
 
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+/* Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
 extern int set_cabc(int level);
 extern int cabc_mode;
 
@@ -697,17 +697,17 @@ static int mdss_fb_lpm_enable(struct msm_fb_data_type *mfd, int mode)
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO, mdss_fb_get_split, NULL);
 static DEVICE_ATTR(show_blank_event, S_IRUGO, mdss_mdp_show_blank_event, NULL);
-/* OPPO 2013-11-26 yxq Add begin for suspend the device */
+/* 2013-11-26 Add begin for suspend the device */
 #ifdef VENDOR_EDIT
 static DEVICE_ATTR(lcdoff, S_IRUGO, mdss_mdp_lcdoff_event, NULL);
 #endif
-/* OPPO 2013-11-26 yxq Add end */
+/*  2013-11-26Add end */
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+/* Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
 static DEVICE_ATTR(cabc, S_IRUGO|S_IWUSR, mdss_get_cabc, mdss_set_cabc);
 #endif /*VENDOR_EDIT*/
 #ifdef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
+/* Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
 static DEVICE_ATTR(gamma, S_IRUGO|S_IWUSR, mdss_get_gamma, mdss_set_gamma);
 #endif /*VENDOR_EDIT*/
 static DEVICE_ATTR(idle_time, S_IRUGO | S_IWUSR | S_IWGRP,
@@ -716,7 +716,7 @@ static DEVICE_ATTR(idle_notify, S_IRUGO, mdss_fb_get_idle_notify, NULL);
 static DEVICE_ATTR(msm_fb_panel_info, S_IRUGO, mdss_fb_get_panel_info, NULL);
 
 #ifdef VENDOR_EDIT
-//LiQiu@oem.cn add for samsung s6e3fa3 panel
+//add for samsung s6e3fa3 panel
 static DEVICE_ATTR(lpm, S_IRUGO|S_IWUSR, mdss_get_acl_mode, mdss_set_low_power_mode);
 static DEVICE_ATTR(hbm, S_IRUGO|S_IWUSR|S_IWUGO, mdss_get_hbm, mdss_set_hbm);
 #endif
@@ -729,23 +729,23 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_idle_notify.attr,
 	&dev_attr_msm_fb_panel_info.attr,
 
-	/* OPPO 2013-11-26 yxq Add begin for suspend the device */
+	/* 2013-11-26Add begin for suspend the device */
 #ifdef VENDOR_EDIT
 		&dev_attr_lcdoff.attr,
 #endif
-	/* OPPO 2013-11-26 yxq Add end */
+	/* 2013-11-26Add end */
 #ifdef VENDOR_EDIT
-	/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+	/* Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
 		&dev_attr_cabc.attr,
 #endif /*VENDOR_EDIT*/
 
 #ifdef VENDOR_EDIT
-	/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
+	/* Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
 		&dev_attr_gamma.attr,
 #endif /*VENDOR_EDIT*/
 
 #ifdef VENDOR_EDIT
-//LiQiu@oem.cn add for samsung s6e3fa3 panel
+//add for samsung s6e3fa3 panel
 	&dev_attr_lpm.attr,
 	&dev_attr_hbm.attr,
 #endif
@@ -775,7 +775,7 @@ static void mdss_fb_shutdown(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 #ifdef VENDOR_EDIT
-/* liuyan@Onlinerd.driver, 2014/09/26  Add for truly panle will flash before panel off,should close back light */
+/* 2014/09/26  Add for truly panle will flash before panel off,should close back light */
        if((get_pcb_version() < HW_VERSION__20)||
 	   ((get_pcb_version() >= HW_VERSION__30)&&
 	   (get_pcb_version() < HW_VERSION__40))){
@@ -1721,7 +1721,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	var->nonstd = 0,	/* standard pixel format */
 	var->activate = FB_ACTIVATE_VBL,	/* activate it at vsync */
 #ifndef VENDOR_EDIT
-/* Xinqin.Yang@PhoneSW.Driver, 2013/12/23  Modify for panel's real size */
+/* PhoneSW.Driver, 2013/12/23  Modify for panel's real size */
 	var->height = -1,	/* height of picture in mm */
 	var->width = -1,	/* width of picture in mm */
 #else /*VENDOR_EDIT*/
@@ -2107,7 +2107,7 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 					mfd->index, task->comm, pid);
 		}
 #ifdef VENDOR_EDIT
-/* add by yangrujin@bsp 2015/8/31, qct patch for free fb ion memory after blank power down */
+/* add by  2015/8/31, qct patch for free fb ion memory after blank power down */
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info,
 			mfd->op_enable);
 		if (ret) {
