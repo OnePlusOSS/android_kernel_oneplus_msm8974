@@ -48,7 +48,17 @@
 #include <mach/msm_rtb.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
+/*Anderson-OP_timestamp-01+[*/
+#ifdef VENDOR_EDIT
+#include <linux/rtc.h>
+#endif
+/*Anderson-OP_timestamp-01+]*/
 
+/*Anderson-OP_timestamp-01+[*/
+#ifdef VENDOR_EDIT
+bool use_op_timestamp = false;
+#endif
+/*Anderson-OP_timestamp-01+]*/
 /*
  * Architectures can override it:
  */
@@ -202,6 +212,11 @@ struct log {
 	u16 text_len;           /* length of text buffer */
 	u16 dict_len;           /* length of dictionary buffer */
 	u16 level;              /* syslog level + facility */
+	/*Anderson-OP_timestamp-01+[*/
+	#ifdef VENDOR_EDIT
+	bool op_timestamp;
+	#endif
+	/*Anderson-OP_timestamp-01+]*/
 };
 
 /*
@@ -217,7 +232,7 @@ static volatile unsigned int logbuf_cpu = UINT_MAX;
 
 /* record buffer */
 #define __LOG_BUF_LEN (1 << CONFIG_LOG_BUF_SHIFT)
-static char __log_buf[__LOG_BUF_LEN];
+ char __log_buf[__LOG_BUF_LEN];
 static char *log_buf = __log_buf;
 static u32 log_buf_len = __LOG_BUF_LEN;
 
@@ -336,7 +351,12 @@ static void log_store(int facility, int level,
 	msg->ts_nsec = local_clock();
 	memset(log_dict(msg) + dict_len, 0, pad_len);
 	msg->len = sizeof(struct log) + text_len + dict_len + pad_len;
-
+	/*Anderson-OP_timestamp-01+[*/
+	#ifdef VENDOR_EDIT
+	if(use_op_timestamp == true)
+		msg->op_timestamp = true;
+	#endif
+	/*Anderson-OP_timestamp-01+]*/
 	/* insert message */
 	log_next_idx += msg->len;
 	log_next_seq++;
@@ -787,6 +807,13 @@ static bool printk_time;
 #endif
 module_param_named(time, printk_time, bool, S_IRUGO | S_IWUSR);
 
+/*Anderson-OP_timestamp-02[*/
+#ifdef VENDOR_EDIT
+static bool print_wall_time = 0;
+module_param_named(print_wall_time, print_wall_time, bool, S_IRUGO | S_IWUSR);
+#endif
+/*Anderson-OP_timestamp-02+]*/
+
 static int syslog_print_line(u32 idx, char *text, size_t size)
 {
 	struct log *msg;
@@ -812,7 +839,13 @@ static int syslog_print_line(u32 idx, char *text, size_t size)
 
 	len = sprintf(text, "<%u>", msg->level);
 
+	/*Anderson-OP_timestamp-01*[*/
+	#ifdef VENDOR_EDIT
+	if (printk_time && msg->op_timestamp!=true) {
+	#else
 	if (printk_time) {
+	#endif
+	/*Anderson-OP_timestamp-01*]*/
 		unsigned long long t = msg->ts_nsec;
 		unsigned long rem_ns = do_div(t, 1000000000);
 
@@ -822,8 +855,24 @@ static int syslog_print_line(u32 idx, char *text, size_t size)
 
 	if (len + msg->text_len > size)
 		return -EINVAL;
+
+	/*Anderson-OP_timestamp-01*[*/
+	#ifdef VENDOR_EDIT
+	if (!printk_time && msg->op_timestamp == true) {
+		/*[20080527_04:10:38.172112]@1 OP timestamp len is 29.*/
+		memcpy(text + len, log_text(msg) + 29, msg->text_len - 29);
+		len += msg->text_len - 29;
+	}
+	else {
+		memcpy(text + len, log_text(msg), msg->text_len);
+		len += msg->text_len;
+	}
+	#else
 	memcpy(text + len, log_text(msg), msg->text_len);
 	len += msg->text_len;
+	#endif
+	/*Anderson-OP_timestamp-01*]*/
+
 	text[len++] = '\n';
 	return len;
 }
@@ -1239,6 +1288,21 @@ asmlinkage int vprintk_emit(int facility, int level,
 	bool newline = false;
 	bool cont = false;
 	int printed_len = 0;
+	/*Anderson-OP_timestamp-01+[*/
+	#ifdef VENDOR_EDIT
+	struct timespec tspec;
+	struct rtc_time tm;
+	extern struct timezone sys_tz;
+	static char texttmp[LOG_LINE_MAX];
+	u64 ts_sec = local_clock();
+	#endif
+	/*Anderson-OP_timestamp-01+]*/
+
+	/*Anderson-OP_timestamp-01+[*/
+	#ifdef VENDOR_EDIT
+	do_div(ts_sec, 1000000000);
+	#endif
+	/*Anderson-OP_timestamp-01+]*/
 
 	boot_delay_msec();
 	printk_delay();
@@ -1285,11 +1349,15 @@ asmlinkage int vprintk_emit(int facility, int level,
 	*/
 	textlen = vscnprintf(text, sizeof(textbuf), fmt, args);
 
+	/*Anderson-OP_timestamp-01-[*/
+	#ifndef VENDOR_EDIT
 	/* mark and strip a trailing newline */
 	if (textlen && text[textlen-1] == '\n') {
 		textlen--;
 		newline = true;
 	}
+	#endif
+	/*Anderson-OP_timestamp-01-]*/
 
 	/* strip syslog prefix and extract log level or flags */
 	if (text[0] == '<' && text[1] && text[2] == '>') {
@@ -1308,6 +1376,28 @@ asmlinkage int vprintk_emit(int facility, int level,
 			break;
 		}
 	}
+	/*Anderson-OP_timestamp-01+[*/
+	#ifdef VENDOR_EDIT
+	if(print_wall_time && ts_sec >= 20){
+		getnstimeofday(&tspec);
+		tspec.tv_sec -= sys_tz.tz_minuteswest * 60;
+		rtc_time_to_tm(tspec.tv_sec, &tm);
+		textlen = scnprintf(texttmp, sizeof(texttmp), "[%02d%02d%02d_%02d:%02d:%02d.%06ld]@%d %s",
+						tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,tm.tm_hour, tm.tm_min, tm.tm_sec,
+						tspec.tv_nsec / 1000, this_cpu, text);
+		text = texttmp;
+		use_op_timestamp = true;
+	}
+	else
+		use_op_timestamp = false;
+	/*Anderson-OP_timestamp-01+]*/
+
+	/* mark and strip a trailing newline */
+	if (textlen && text[textlen-1] == '\n') {
+		textlen--;
+		newline = true;
+	}
+	#endif
 
 	if (buflen && (!cont || dict)) {
 		/* no continuation; flush existing buffer */

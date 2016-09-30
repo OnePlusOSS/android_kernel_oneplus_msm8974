@@ -104,6 +104,10 @@ menu "DOS/FAT/NT Filesystems"
 source "fs/fat/Kconfig"
 source "fs/ntfs/Kconfig"
 
+#ifdef VENDOR_EDIT
+source "fs/exfat/Kconfig"
+#endif
+
 endmenu
 endif # BLOCK
 

@@ -679,4 +679,9 @@ source "drivers/misc/ti-st/Kconfig"
 source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
 source "drivers/misc/altera-stapl/Kconfig"
+# 2013-02-21 yuyi add begin for rgb led
+#ifdef VENDOR_EDIT
+source "drivers/misc/shineled/Kconfig"
+#endif VENDOR_EDIT
+# 2013-02-21 yuyi add end for rgb led
 endmenu

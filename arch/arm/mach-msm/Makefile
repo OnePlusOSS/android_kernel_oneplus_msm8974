@@ -379,6 +379,11 @@ obj-$(CONFIG_ARCH_MSM7X30) += board-msm7x30-regulator.o
 obj-$(CONFIG_ARCH_MSM7X27A) += board-msm7x27a-regulator.o
 endif
 
+#ifdef VENDOR_EDIT
+#Zhilong.Zhang@OnlineRd.Driver, 2013/10/04, Add for OPPO trace
+obj-$(CONFIG_OEM_DEBUG_ASSERT) += oem_trace.o
+#obj-y += oem_trace.o
+#endif /* VENDOR_EDIT */
 obj-$(CONFIG_ARCH_MSM8960) += mdm2.o mdm_common.o
 obj-$(CONFIG_MSM_RTB) += msm_rtb.o
 obj-$(CONFIG_MSM_CACHE_ERP) += cache_erp.o
@@ -419,3 +424,12 @@ obj-$(CONFIG_WALL_CLK) += wallclk.o
 obj-$(CONFIG_WALL_CLK_SYSFS) += wallclk_sysfs.o
 obj-$(CONFIG_ARCH_RANDOM) += early_random.o
 obj-$(CONFIG_PERFMAP) += perfmap.o
+#ifdef VENDOR_EDIT
+#Wanjc@OnlineRd.Driver, 2013/10/23, Add for OPPO device info
+obj-$(CONFIG_OEM_DEVICE_IFNO)	+=  device_info.o
+#endif /* VENDOR_EDIT */
+
+#ifdef VENDOR_EDIT
+#Add by yangrujin@bsp, 2015/5/21, Add for project info
+obj-$(CONFIG_OEM_PROJECT_INFO) += project_info.o
+#endif /* VENDOR_EDIT */

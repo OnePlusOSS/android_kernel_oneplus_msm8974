@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, 2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,6 @@
 #include "msm_camera_i2c.h"
 #include "msm_sd.h"
 
-#define MAX_LED_TRIGGERS 3
 
 struct msm_led_flash_ctrl_t;
 
@@ -51,22 +50,31 @@ struct msm_led_flash_ctrl_t {
 	struct msm_flash_fn_t *func_tbl;
 	struct msm_camera_sensor_board_info *flashdata;
 	struct msm_led_flash_reg_t *reg_setting;
+	/* Flash */
 	const char *flash_trigger_name[MAX_LED_TRIGGERS];
 	struct led_trigger *flash_trigger[MAX_LED_TRIGGERS];
+	uint32_t flash_num_sources;
 	uint32_t flash_op_current[MAX_LED_TRIGGERS];
 	uint32_t flash_max_current[MAX_LED_TRIGGERS];
-	const char *torch_trigger_name;
-	struct led_trigger *torch_trigger;
-	uint32_t torch_op_current;
-	uint32_t torch_max_current;
+	uint32_t flash_max_duration[MAX_LED_TRIGGERS];
+	/* Torch */
+	const char *torch_trigger_name[MAX_LED_TRIGGERS];
+	struct led_trigger *torch_trigger[MAX_LED_TRIGGERS];
+	uint32_t torch_num_sources;
+	uint32_t torch_op_current[MAX_LED_TRIGGERS];
+	uint32_t torch_max_current[MAX_LED_TRIGGERS];
+
 	void *data;
-	uint32_t num_sources;
 	enum msm_camera_device_type_t flash_device_type;
+	enum cci_i2c_master_t cci_i2c_master;
+	enum msm_camera_led_config_t led_state;
 	uint32_t subdev_id;
 };
 
 int msm_flash_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id);
+
+int msm_flash_probe(struct platform_device *pdev, const void *data);
 
 int32_t msm_led_flash_create_v4lsubdev(struct platform_device *pdev,
 	void *data);

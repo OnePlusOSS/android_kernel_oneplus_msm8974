@@ -26,6 +26,11 @@
 #include "sd.h"
 #include "sd_ops.h"
 
+#ifdef VENDOR_EDIT
+#include <linux/gpio.h>
+#include <linux/regulator/consumer.h>
+#endif
+
 #define UHS_SDR104_MIN_DTR	(100 * 1000 * 1000)
 #define UHS_DDR50_MIN_DTR	(50 * 1000 * 1000)
 #define UHS_SDR50_MIN_DTR	(50 * 1000 * 1000)
@@ -1150,6 +1155,10 @@ static int mmc_sd_alive(struct mmc_host *host)
 	return mmc_send_status(host->card, NULL);
 }
 
+#ifdef VENDOR_EDIT
+extern int tf_card_status;
+#endif
+
 /*
  * Card detection callback from host.
  */
@@ -1165,7 +1174,15 @@ static void mmc_sd_detect(struct mmc_host *host)
 
 	mmc_rpm_hold(host, &host->card->dev);
 	mmc_claim_host(host);
-
+#ifdef VENDOR_EDIT
+    if(tf_card_status == 0){
+		pr_info("Remove sd card,%s,%d\n",__func__,__LINE__);
+//hefaxi@filesystems, 2015/08/07, add for drop power if sdcard not present
+        if(host->sdcard_2p95_en){
+			gpio_direction_output(host->sdcard_2p95_en,0);
+		}
+	}
+#endif/*VENDOR_EDIT*/
 	/*
 	 * Just check if our card has been removed.
 	 */

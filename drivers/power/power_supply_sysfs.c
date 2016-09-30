@@ -101,6 +101,11 @@ static ssize_t power_supply_show_property(struct device *dev,
 		return sprintf(buf, "%s\n", type_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_SCOPE)
 		return sprintf(buf, "%s\n", scope_text[value.intval]);
+#ifdef CONFIG_VENDOR_EDIT
+	else if (off == POWER_SUPPLY_PROP_BATTERY_TYPE)
+		return sprintf(buf, "%s\n", value.strval);
+#endif /*CONFIG_VENDOR_EDIT*/
+
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
 		return sprintf(buf, "%s\n", value.strval);
 
@@ -138,6 +143,10 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(health),
 	POWER_SUPPLY_ATTR(present),
 	POWER_SUPPLY_ATTR(online),
+#ifdef CONFIG_VENDOR_EDIT
+	// add by xcb
+	POWER_SUPPLY_ATTR(chg_protect_status),
+#endif
 	POWER_SUPPLY_ATTR(charging_enabled),
 	POWER_SUPPLY_ATTR(technology),
 	POWER_SUPPLY_ATTR(cycle_count),
@@ -177,6 +186,14 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(temp),
 	POWER_SUPPLY_ATTR(temp_cool),
 	POWER_SUPPLY_ATTR(temp_warm),
+#ifdef CONFIG_VENDOR_EDIT
+	// add by xcb
+	POWER_SUPPLY_ATTR(temp_cold),
+	POWER_SUPPLY_ATTR(temp_overheat),
+	POWER_SUPPLY_ATTR(temp_little_cool),
+	POWER_SUPPLY_ATTR(temp_little_cold),
+	POWER_SUPPLY_ATTR(temp_status),
+#endif
 	POWER_SUPPLY_ATTR(temp_ambient),
 	POWER_SUPPLY_ATTR(time_to_empty_now),
 	POWER_SUPPLY_ATTR(time_to_empty_avg),
@@ -186,6 +203,24 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(scope),
 	POWER_SUPPLY_ATTR(system_temp_level),
 	POWER_SUPPLY_ATTR(resistance),
+	POWER_SUPPLY_ATTR(authenticate),//wangjc add for authentication
+#ifdef CONFIG_VENDOR_EDIT
+/* jingchun.wang@Onlinerd.Driver, 2013/12/16  Add for charge timeout */
+	POWER_SUPPLY_ATTR(charge_timeout),
+#endif /*CONFIG_VENDOR_EDIT*/
+#ifdef CONFIG_VENDOR_EDIT
+	// add by xcb
+	POWER_SUPPLY_ATTR(battery_type),
+	POWER_SUPPLY_ATTR(calculated_soc),
+	POWER_SUPPLY_ATTR(status_for_bms),
+	POWER_SUPPLY_ATTR(charge_ovp),
+	POWER_SUPPLY_ATTR(constant_charge_current_max),
+#endif /*CONFIG_VENDOR_EDIT*/
+
+#ifdef CONFIG_PIC1503_FASTCG
+/* jingchun.wang@Onlinerd.Driver,2013/12/22 Add for fastchg*/
+	POWER_SUPPLY_ATTR(fastcharger),
+#endif	//CONFIG_PIC1503_FASTCG
 	/* Properties of type `const char *' */
 	POWER_SUPPLY_ATTR(model_name),
 	POWER_SUPPLY_ATTR(manufacturer),

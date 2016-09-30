@@ -54,6 +54,16 @@
 
 #include "mdss_fb.h"
 #include "mdss_mdp_splash_logo.h"
+#ifdef VENDOR_EDIT
+#include "mdss_dsi.h"
+#include <linux/pcb_version.h>
+#endif
+
+#ifdef VENDOR_EDIT
+extern volatile int is_deep_resume;
+volatile int is_panel_blank = 0;
+extern bool is_samsung_s6e3fa3_panel;
+#endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -404,6 +414,121 @@ static ssize_t mdss_fb_get_idle_notify(struct device *dev,
 
 	return ret;
 }
+/* 2013-11-26 Add begin for suspend the device */
+#ifdef VENDOR_EDIT
+static ssize_t mdss_mdp_lcdoff_event(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+    pr_err("%smfd=0x%p\n", __func__, mfd);
+	if (!mfd)
+		return -ENODEV;
+	return mdss_fb_blank_sub(FB_BLANK_POWERDOWN, mfd->fbi,
+					mfd->op_enable);
+}
+#endif
+/* 2013-11-26 Add end */
+#ifdef VENDOR_EDIT
+/* Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
+extern int set_gamma(int index);
+
+extern int gamma_index;
+extern void send_user_defined_gamma(char * buf);
+
+static ssize_t mdss_set_gamma(struct device *dev,
+                               struct device_attribute *attr,
+                               const char *buf, size_t count)
+{
+    int index = 0;
+	char a[100];
+    sscanf(buf, "%du", &index);
+	pr_err("strlen = %d \n",strlen(buf));
+	if(strlen(buf)<=2){
+    set_gamma(index);
+	gamma_index = index;
+	}
+	else{
+		strcpy(a,buf);
+		pr_err("%s \n",a);
+		if((get_pcb_version() < 20)||(get_pcb_version() >=30))
+		send_user_defined_gamma(a);
+	}
+    return count;
+}
+
+static ssize_t mdss_get_gamma(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	printk(KERN_INFO "get fix resume gamma index = %d\n",gamma_index);
+
+    return sprintf(buf, "%d\n", gamma_index);
+}
+#endif /*VENDOR_EDIT*/
+
+
+#ifdef VENDOR_EDIT
+/* Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+extern int set_cabc(int level);
+extern int cabc_mode;
+
+static ssize_t mdss_get_cabc(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	printk(KERN_INFO "get cabc mode = %d\n",cabc_mode);
+
+    return sprintf(buf, "%d\n", cabc_mode);
+}
+
+static ssize_t mdss_set_cabc(struct device *dev,
+                               struct device_attribute *attr,
+                               const char *buf, size_t count)
+{
+    int level = 0;
+    sscanf(buf, "%du", &level);
+    set_cabc(level);
+    return count;
+}
+
+#endif /*VENDOR_EDIT*/
+#ifdef VENDOR_EDIT
+extern int hbm_mode;
+extern int acl_mode;
+extern void set_acl_mode(int level);
+extern void set_hbm_mode(int level);
+
+static ssize_t mdss_set_acl_mode(struct device *dev,
+                               struct device_attribute *attr,
+                               const char *buf, size_t count)
+{
+    int level = 0;
+    sscanf(buf, "%du", &level);
+        set_acl_mode(level);
+    return count;
+}
+
+static ssize_t mdss_get_acl_mode(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	pr_err("acl_mode = %d\n",acl_mode);
+    return sprintf(buf, "%d\n", acl_mode);
+}
+static ssize_t mdss_set_hbm(struct device *dev,
+                               struct device_attribute *attr,
+                               const char *buf, size_t count)
+{
+    int level = 0;
+    sscanf(buf, "%du", &level);
+    set_hbm_mode(level);
+    return count;
+}
+static ssize_t mdss_get_hbm(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	pr_err("hbm_mode = %d\n",hbm_mode);
+    return sprintf(buf, "%d\n", hbm_mode);
+}
+#endif
 
 static ssize_t mdss_fb_get_panel_info(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -514,11 +639,29 @@ static int mdss_fb_lpm_enable(struct msm_fb_data_type *mfd, int mode)
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO, mdss_fb_get_split, NULL);
 static DEVICE_ATTR(show_blank_event, S_IRUGO, mdss_mdp_show_blank_event, NULL);
+/* 2013-11-26 Add begin for suspend the device */
+#ifdef VENDOR_EDIT
+static DEVICE_ATTR(lcdoff, S_IRUGO, mdss_mdp_lcdoff_event, NULL);
+#endif
+/*  2013-11-26Add end */
+#ifdef VENDOR_EDIT
+/* Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+static DEVICE_ATTR(cabc, S_IRUGO|S_IWUSR, mdss_get_cabc, mdss_set_cabc);
+#endif /*VENDOR_EDIT*/
+#ifdef VENDOR_EDIT
+/* Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
+static DEVICE_ATTR(gamma, S_IRUGO|S_IWUSR, mdss_get_gamma, mdss_set_gamma);
+#endif /*VENDOR_EDIT*/
 static DEVICE_ATTR(idle_time, S_IRUGO | S_IWUSR | S_IWGRP,
 	mdss_fb_get_idle_time, mdss_fb_set_idle_time);
 static DEVICE_ATTR(idle_notify, S_IRUGO, mdss_fb_get_idle_notify, NULL);
 static DEVICE_ATTR(msm_fb_panel_info, S_IRUGO, mdss_fb_get_panel_info, NULL);
 
+#ifdef VENDOR_EDIT
+//add for samsung s6e3fa3 panel
+static DEVICE_ATTR(acl, S_IRUGO|S_IWUSR, mdss_get_acl_mode, mdss_set_acl_mode);
+static DEVICE_ATTR(hbm, S_IRUGO|S_IWUGO, mdss_get_hbm, mdss_set_hbm);
+#endif
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
 	&dev_attr_msm_fb_split.attr,
@@ -526,6 +669,25 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_idle_time.attr,
 	&dev_attr_idle_notify.attr,
 	&dev_attr_msm_fb_panel_info.attr,
+	/* 2013-11-26Add begin for suspend the device */
+#ifdef VENDOR_EDIT
+	&dev_attr_lcdoff.attr,
+#endif
+#ifdef VENDOR_EDIT
+	/* Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+		&dev_attr_cabc.attr,
+#endif /*VENDOR_EDIT*/
+
+#ifdef VENDOR_EDIT
+	/* Mobile Phone Software Dept.Driver, 2014/04/12  Add for gamma correction */
+		&dev_attr_gamma.attr,
+#endif /*VENDOR_EDIT*/
+
+#ifdef VENDOR_EDIT
+//add for samsung s6e3fa3 panel
+	&dev_attr_acl.attr,
+	&dev_attr_hbm.attr,
+#endif
 	NULL,
 };
 
@@ -551,7 +713,10 @@ static void mdss_fb_remove_sysfs(struct msm_fb_data_type *mfd)
 static void mdss_fb_shutdown(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
-
+#ifdef VENDOR_EDIT
+/* 2014/09/26  Add for truly panle will flash before panel off,should close back light */
+    mdss_fb_set_backlight(mfd,0);
+#endif /*CONFIG_VENDOR_EDIT*/
 	mfd->shutdown_pending = true;
 	lock_fb_info(mfd->fbi);
 	mdss_fb_release_all(mfd->fbi, true);
@@ -791,13 +956,20 @@ static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 	/* resume state var recover */
 	mfd->op_enable = mfd->suspend.op_enable;
 
-	if (mfd->suspend.panel_power_on) {
+	if (mfd->suspend.panel_power_on
+	    #ifdef VENDOR_EDIT
+	        || ((!mfd->index) && is_deep_resume && is_samsung_s6e3fa3_panel)
+	    #endif
+	 ) {
 		ret = mdss_fb_blank_sub(FB_BLANK_UNBLANK, mfd->fbi,
 					mfd->op_enable);
 		if (ret)
 			pr_warn("can't turn on display!\n");
 		else
 			fb_set_suspend(mfd->fbi, FBINFO_STATE_RUNNING);
+	#ifdef VENDOR_EDIT
+	    is_deep_resume = 0;
+	#endif
 	}
 	mfd->is_power_setting = false;
 	complete_all(&mfd->power_set_comp);
@@ -1014,6 +1186,11 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 			if (mfd->idle_time)
 				schedule_delayed_work(&mfd->idle_notify_work,
 					msecs_to_jiffies(mfd->idle_time));
+		#ifdef VENDOR_EDIT
+		    mutex_lock(&mfd->wakeup_lock);
+            is_panel_blank = 1;
+            mutex_unlock(&mfd->wakeup_lock);
+	    #endif
 		}
 
 		mutex_lock(&mfd->bl_lock);
@@ -1032,6 +1209,11 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 		if (mfd->panel_power_on && mfd->mdp.off_fnc) {
 			int curr_pwr_state;
 
+		#ifdef VENDOR_EDIT
+		    mutex_lock(&mfd->wakeup_lock);
+            is_panel_blank = 0;
+            mutex_unlock(&mfd->wakeup_lock);
+	    #endif
 			mutex_lock(&mfd->update.lock);
 			mfd->update.type = NOTIFY_TYPE_SUSPEND;
 			mfd->update.is_suspend = 1;
@@ -1492,8 +1674,14 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	var->grayscale = 0,	/* No graylevels */
 	var->nonstd = 0,	/* standard pixel format */
 	var->activate = FB_ACTIVATE_VBL,	/* activate it at vsync */
+#ifndef VENDOR_EDIT
+/* PhoneSW.Driver, 2013/12/23  Modify for panel's real size */
 	var->height = -1,	/* height of picture in mm */
 	var->width = -1,	/* width of picture in mm */
+#else /*VENDOR_EDIT*/
+	var->height = 121,	/* height of picture in mm */
+	var->width = 68,	/* width of picture in mm */
+#endif /*VENDOR_EDIT*/
 	var->accel_flags = 0,	/* acceleration flags */
 	var->sync = 0,	/* see FB_SYNC_* */
 	var->rotate = 0,	/* angle we rotate counter clockwise */
@@ -1656,7 +1844,9 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 		pr_warn("unable to allocate fb memory in fb register\n");
 
 	mfd->op_enable = true;
-
+#ifdef VENDOR_EDIT
+    mutex_init(&mfd->wakeup_lock);
+#endif
 	mutex_init(&mfd->update.lock);
 	mutex_init(&mfd->no_update.lock);
 	mutex_init(&mfd->mdp_sync_pt_data.sync_mutex);
@@ -1872,10 +2062,11 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 				pr_err("error fb%d release process %s pid=%d\n",
 					mfd->index, task->comm, pid);
 		}
-
+#ifndef VENDOR_EDIT
+/* add by qct,2015/8/31, patch for free fb ion memory after blank power down */
 		if (mfd->fb_ion_handle)
 			mdss_fb_free_fb_ion_memory(mfd);
-
+#endif
 		if (mfd->mdp.ad_shutdown_cleanup) {
 			ad_ret = (*mfd->mdp.ad_shutdown_cleanup)(mfd);
 			if (ad_ret)
@@ -1890,6 +2081,11 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 				mfd->index, ret, task->comm, pid);
 			return ret;
 		}
+#ifdef VENDOR_EDIT
+/* add by qct,2015/8/31, patch for free fb ion memory after blank power down */
+		if (mfd->fb_ion_handle)
+			mdss_fb_free_fb_ion_memory(mfd);
+#endif
 		atomic_set(&mfd->ioctl_ref_cnt, 0);
 	}
 

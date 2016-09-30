@@ -74,7 +74,16 @@ static void *emergency_dload_mode_addr;
 
 /* Download mode master kill-switch */
 static int dload_set(const char *val, struct kernel_param *kp);
+#ifndef CONFIG_VENDOR_EDIT  
+//modify for reboot after crash
 static int download_mode = 1;
+#else
+#ifndef RELEASE_DOWNLOAD_MODE_SET
+static int download_mode = 1;
+#else
+static int download_mode = 0;
+#endif 
+#endif  /*CONFIG_VENDOR_EDIT*/
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
 static int panic_prep_restart(struct notifier_block *this,
@@ -88,21 +97,82 @@ static struct notifier_block panic_blk = {
 	.notifier_call	= panic_prep_restart,
 };
 
+#define __LOG_BUF_LEN	(1 << CONFIG_LOG_BUF_SHIFT)
+extern char __log_buf[__LOG_BUF_LEN];
+
+typedef unsigned int	uint32;
+
+#ifdef CONFIG_VENDOR_EDIT
+struct boot_shared_imem_cookie_type
+{
+  /* First 8 bytes are two dload magic numbers */
+  uint32 dload_magic_1;
+  uint32 dload_magic_2;
+
+  /* Magic number which indicates boot shared imem has been initialized
+     and the content is valid.*/ 
+  uint32 shared_imem_magic;
+
+  /* Magic number for UEFI ram dump, if this cookie is set along with dload magic numbers,
+     we don't enter dload mode but continue to boot. This cookie should only be set by UEFI*/
+  uint32 uefi_ram_dump_magic;
+
+  /* Pointer that points to etb ram dump buffer, should only be set by HLOS */
+  uint32 etb_buf_addr;
+
+  /* Region where HLOS will write the l2 cache dump buffer start address */
+  uint32 *l2_cache_dump_buff_ptr;
+
+  uint32 ddr_training_cookie;
+
+  /* Cookie that will be used to sync with RPM */
+  uint32 rpm_sync_cookie;
+
+  /* Abnormal reset cookie used by UEFI */
+  uint32 abnormal_reset_occurred;
+
+  /* Reset Status Register */
+  uint32 reset_status_register;
+
+  uint32 kernel_log_buff_start;
+  uint32 kernel_log_buff_size;
+
+  /* Please add new cookie here, do NOT modify or rearrange the existing cookies*/
+};
+#endif
+
+#ifdef VENDOR_EDIT
+//hefaxi@filesystems, 2015/07/03, add for force dump function
+int oem_get_download_mode(void)
+{
+	return download_mode;
+}
+#endif
+
 static void set_dload_mode(int on)
 {
 	if (dload_mode_addr) {
 		__raw_writel(on ? 0xE47B337D : 0, dload_mode_addr);
 		__raw_writel(on ? 0xCE14091A : 0,
 		       dload_mode_addr + sizeof(unsigned int));
+		#ifdef CONFIG_VENDOR_EDIT
+		//Add this to value for dump KMSG.bin
+		__raw_writel(on ? (virt_to_phys(__log_buf)) : 0, dload_mode_addr + sizeof(unsigned int) *10 );
+		__raw_writel(on ? __LOG_BUF_LEN : 0, dload_mode_addr + sizeof(unsigned int) *11 );
+		#endif
 		mb();
 		dload_mode_enabled = on;
 	}
 }
 
+#ifndef CONFIG_VENDOR_EDIT
+/*  reboot into quickboot charging */
+/* delete this for compiling warning*/
 static bool get_dload_mode(void)
 {
 	return dload_mode_enabled;
 }
+#endif //CONFIG_VENDOR_EDIT
 
 static void enable_emergency_dload_mode(void)
 {
@@ -248,10 +318,20 @@ static irqreturn_t resout_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_VENDOR_EDIT
+/*   modify begin for restart mode*/
+#define FACTORY_MODE	0x77665504
+#define WLAN_MODE		0x77665505
+#define RF_MODE			0x77665506
+#define MOS_MODE		0x77665507
+#define RECOVERY_MODE   0x77665502
+#define FASTBOOT_MODE   0x77665500
+#endif //CONFIG_VENDOR_EDIT
 static void msm_restart_prepare(const char *cmd)
 {
 #ifdef CONFIG_MSM_DLOAD_MODE
-
+	pr_info("%s : in_panic: %s, restart_mode: %s, download_mode: %s\n",
+			__func__, in_panic?"Y":"N", restart_mode?"Y":"N", download_mode?"Y":"N" );
 	/* This looks like a normal reboot at this point. */
 	set_dload_mode(0);
 
@@ -269,12 +349,21 @@ static void msm_restart_prepare(const char *cmd)
 
 	pm8xxx_reset_pwr_off(1);
 
-	/* Hard reset the PMIC unless memory contents must be maintained. */
+#ifndef CONFIG_VENDOR_EDIT
+/* reboot into quickboot charging */
+/* Hard reset the PMIC unless memory contents must be maintained. */
 	if (get_dload_mode() || (cmd != NULL && cmd[0] != '\0'))
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 	else
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
+#else
+/* We don't do hard reset when reboot. Because we wan't the restart reason
+    in the shared memory any way. If a hard reset was done, that will be lost.*/ 
+    qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+#endif //CONFIG_VENDOR_EDIT
 
+#ifndef CONFIG_VENDOR_EDIT
+/*  modify begin for restart mode*/
 	if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			__raw_writel(0x77665500, restart_reason);
@@ -292,6 +381,39 @@ static void msm_restart_prepare(const char *cmd)
 			__raw_writel(0x77665501, restart_reason);
 		}
 	}
+#else //CONFIG_VENDOR_EDIT
+	if (cmd != NULL) {
+		if (!strncmp(cmd, "bootloader", 10)) {
+			__raw_writel(FASTBOOT_MODE, restart_reason);
+		} else if (!strncmp(cmd, "recovery", 8)) {
+			__raw_writel(RECOVERY_MODE, restart_reason);
+		}  else if (!strncmp(cmd, "rf", 2)) {
+			__raw_writel(RF_MODE, restart_reason);
+		}   else if (!strncmp(cmd, "wlan", 4)) {
+			__raw_writel(WLAN_MODE, restart_reason);
+		}   else if (!strncmp(cmd, "mos", 3)) {
+			__raw_writel(MOS_MODE, restart_reason);
+		}   else if (!strncmp(cmd, "ftm", 3)) {
+			__raw_writel(FACTORY_MODE, restart_reason);
+		} else if (!strncmp(cmd, "oem-", 4)) {
+			unsigned long code;
+			code = simple_strtoul(cmd + 4, NULL, 16) & 0xff;
+			__raw_writel(0x6f656d00 | code, restart_reason);
+		} else if (!strncmp(cmd, "kernel", 6)) {
+            __raw_writel(0x7766550a, restart_reason);
+        } else if (!strncmp(cmd, "modem", 5)) {
+            __raw_writel(0x7766550b, restart_reason);
+        } else if (!strncmp(cmd, "android", 7)) {
+            __raw_writel(0x7766550c, restart_reason);
+		} else if (!strncmp(cmd, "edl", 3)) {
+			enable_emergency_dload_mode();
+		} else {
+			__raw_writel(0x77665501, restart_reason);
+			  }
+	}else {
+		__raw_writel(0x77665501, restart_reason);
+	}
+#endif //CONFIG_VENDOR_EDIT
 
 	flush_cache_all();
 	outer_flush_all();
@@ -362,6 +484,10 @@ static int __init msm_restart_init(void)
 #endif
 	msm_tmr0_base = msm_timer_get_timer0_base();
 	restart_reason = MSM_IMEM_BASE + RESTART_REASON_ADDR;
+	#ifdef CONFIG_VENDOR_EDIT
+/* added begin for default restart reason*/
+	__raw_writel(0x7766550a, restart_reason);
+	#endif //CONFIG_VENDOR_EDIT
 	pm_power_off = msm_power_off;
 
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DISABLE_PMIC_ARBITER) > 0)

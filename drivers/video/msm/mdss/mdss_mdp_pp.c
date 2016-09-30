@@ -2909,28 +2909,52 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 	mutex_lock(&mdss_pp_mutex);
 
 	disp_num = PP_BLOCK(config->block) - MDP_LOGICAL_BLOCK_DISP_0;
+#ifndef VENDOR_EDIT
+//add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
 	ret = pp_get_dspp_num(disp_num, &dspp_num);
 	if (ret) {
 		pr_err("%s, no dspp connects to disp %d", __func__, disp_num);
 		goto argc_config_exit;
 	}
-
+#else
+    if (config->flags & MDP_PP_OPS_READ){
+	    ret = pp_get_dspp_num(disp_num, &dspp_num);
+        if (ret) {
+            pr_err("%s, no dspp connects to disp %d", __func__, disp_num);
+            goto argc_config_exit;
+        }
+	}
+#endif
 	switch (PP_LOCAT(config->block)) {
 	case MDSS_PP_LM_CFG:
+#ifdef VENDOR_EDIT
+//add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
+	if (config->flags & MDP_PP_OPS_READ)
+#endif
 		argc_addr = mdss_mdp_get_mixer_addr_off(dspp_num) +
 			MDSS_MDP_REG_LM_GC_LUT_BASE;
 		pgc_ptr = &mdss_pp_res->argc_disp_cfg[disp_num];
+#ifndef VENDOR_EDIT
+//patch for setting qdcm bypass mode not seccessful.
 		if (config->flags & MDP_PP_OPS_WRITE)
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 				PP_FLAGS_DIRTY_ARGC;
+#endif
 		break;
 	case MDSS_PP_DSPP_CFG:
+#ifdef VENDOR_EDIT
+//add qualcomm patch for avoid setting qdcm mode in display off status abnormal issue.
+	if (config->flags & MDP_PP_OPS_READ)
+#endif
 		argc_addr = mdss_mdp_get_dspp_addr_off(dspp_num) +
 					MDSS_MDP_REG_DSPP_GC_BASE;
 		pgc_ptr = &mdss_pp_res->pgc_disp_cfg[disp_num];
+#ifndef VENDOR_EDIT
+//add qcom patch for setting qdcm bypass mode not successful.
 		if (config->flags & MDP_PP_OPS_WRITE)
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 				PP_FLAGS_DIRTY_PGC;
+#endif
 		break;
 	default:
 		goto argc_config_exit;
@@ -3020,6 +3044,15 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 			&mdss_pp_res->gc_lut_g[disp_num][0];
 		pgc_ptr->b_data =
 			&mdss_pp_res->gc_lut_b[disp_num][0];
+#ifdef VENDOR_EDIT
+//add qcom patch for setting qdcm bypass mode not successful.
+        if (PP_LOCAT(config->block) == MDSS_PP_LM_CFG)
+            mdss_pp_res->pp_disp_flags[disp_num] |=
+                PP_FLAGS_DIRTY_ARGC;
+        else if (PP_LOCAT(config->block) == MDSS_PP_DSPP_CFG)
+            mdss_pp_res->pp_disp_flags[disp_num] |=
+                PP_FLAGS_DIRTY_PGC;
+#endif
 	}
 argc_config_exit:
 	mutex_unlock(&mdss_pp_mutex);

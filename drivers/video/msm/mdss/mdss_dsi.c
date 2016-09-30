@@ -66,6 +66,15 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 		return 0;
 
 	if (enable) {
+    #ifdef VENDOR_EDIT
+        if (gpio_is_valid(ctrl_pdata->vci_en_gpio)){
+            ret= mdss_dsi_panel_vci_en(pdata, 1);
+            if (ret) {
+                pr_err("%s:Failed to enable vci vregs.rc=%d\n",
+                    __func__, ret);
+            }
+        }
+    #endif
 		ret = msm_dss_enable_vreg(
 			ctrl_pdata->power_data.vreg_config,
 			ctrl_pdata->power_data.num_vreg, 1);
@@ -75,7 +84,11 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 			goto error;
 		}
 
-		if (!pdata->panel_info.mipi.lp11_init) {
+		if (!pdata->panel_info.mipi.lp11_init
+		#ifdef VENDOR_EDIT
+            || pdata->panel_info.cont_splash_enabled
+        #endif
+            ) {
 			ret = mdss_dsi_panel_reset(pdata, 1);
 			if (ret) {
 				pr_err("%s: Panel reset failed. rc=%d\n",
@@ -94,6 +107,16 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 					__func__, ret);
 			goto error;
 		}
+	#ifdef VENDOR_EDIT
+        if(gpio_is_valid(ctrl_pdata->vci_en_gpio)){
+            ret= mdss_dsi_panel_vci_en(pdata, 0);
+            if (ret) {
+                pr_err("%s:Failed to disable vci vregs.rc=%d\n",
+                    __func__, ret);
+            }
+            usleep(1000);
+        }
+    #endif
 		ret = msm_dss_enable_vreg(
 			ctrl_pdata->power_data.vreg_config,
 			ctrl_pdata->power_data.num_vreg, 0);
@@ -867,8 +890,11 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 	pr_debug("%s+: ctrl=%p ndx=%d\n", __func__,
 				ctrl_pdata, ctrl_pdata->ndx);
 
+#ifndef CONFIG_VENDOR_EDIT
+/* PhoneSW.Driver, 2013/12/26  Delete for panel had initialized */
 	WARN((ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT),
 		"Incorrect Ctrl state=0x%x\n", ctrl_pdata->ctrl_state);
+#endif /*CONFIG_VENDOR_EDIT*/
 
 	mdss_dsi_sw_reset(pdata);
 	mdss_dsi_host_init(pdata);
@@ -1047,6 +1073,12 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		rc = mdss_dsi_off(pdata);
 		break;
 	case MDSS_EVENT_CONT_SPLASH_FINISH:
+	/* 2013-10-18 added begin for continous splash */
+#ifdef VENDOR_EDIT
+		pr_err("%s: MDSS_EVENT_CONT_SPLASH_FINISH\n", __func__);
+		mdss_dsi_on(pdata);
+#endif
+/* 2013-10-18 added end */
 		if (ctrl_pdata->off_cmds.link_state == DSI_LP_MODE)
 			rc = mdss_dsi_blank(pdata);
 		ctrl_pdata->ctrl_state &= ~CTRL_STATE_MDP_ACTIVE;
@@ -1070,6 +1102,10 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 			/* Panel is Enabled in Bootloader */
 			rc = mdss_dsi_blank(pdata);
 		}
+/* 2013-10-18 added begin for continous splash */
+#ifdef VENDOR_EDIT
+		 mdss_dsi_off(pdata);
+#endif
 		break;
 	case MDSS_EVENT_ENABLE_PARTIAL_UPDATE:
 		rc = mdss_dsi_ctl_partial_update(pdata);
@@ -1085,6 +1121,12 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		rc = mdss_dsi_update_panel_config(ctrl_pdata,
 					(int)(unsigned long) arg);
 		break;
+#ifdef VENDOR_EDIT
+	case MDSS_EVENT_WAIT_TIMEOUT:
+	    if (ctrl_pdata->wait_timeout)
+            rc = ctrl_pdata->wait_timeout(ctrl_pdata);
+	    break;
+#endif
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);
 		break;
@@ -1481,7 +1523,13 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio))
 		pr_err("%s:%d, Disp_en gpio not specified\n",
 						__func__, __LINE__);
-
+#ifdef VENDOR_EDIT
+	ctrl_pdata->vci_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"qcom,platform-vci-enable-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->vci_en_gpio))
+		pr_err("%s:%d, vci_en_gpio gpio not specified\n",
+						__func__, __LINE__);
+#endif
 	if (pinfo->type == MIPI_CMD_PANEL) {
 		ctrl_pdata->disp_te_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 						"qcom,platform-te-gpio", 0);
@@ -1524,6 +1572,71 @@ int dsi_panel_device_register(struct device_node *pan_node,
 					ctrl_pdata->disp_te_gpio);
 	}
 
+#ifdef VENDOR_EDIT
+	ctrl_pdata->esd_check_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"qcom,platform-esd-check-gpio", 0);
+    if (gpio_is_valid(ctrl_pdata->esd_check_gpio)){
+        rc = gpio_request(ctrl_pdata->esd_check_gpio, "disp_esd");
+		if (rc) {
+			pr_err(" request ESD gpio failed, rc=%d\n",
+			       rc);
+			return -ENODEV;
+		}
+		rc = gpio_tlmm_config(GPIO_CFG(
+				ctrl_pdata->esd_check_gpio, 0,
+				GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_DOWN,
+				GPIO_CFG_2MA),
+				GPIO_CFG_ENABLE);
+
+		if (rc) {
+			pr_err("%s: unable to ESD config tlmm\n",
+				__func__);
+			gpio_free(ctrl_pdata->esd_check_gpio);
+			return -ENODEV;
+		}
+
+		rc = gpio_direction_input(ctrl_pdata->esd_check_gpio);
+		if (rc) {
+			pr_err("set_direction for ESD GPIO failed, rc=%d\n",
+			       rc);
+			gpio_free(ctrl_pdata->esd_check_gpio);
+			return -ENODEV;
+		}
+	}else{
+        pr_err("%s:%d, esd_check_gpio gpio not specified\n",
+						__func__, __LINE__);
+	}
+
+	ctrl_pdata->err_fg_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"qcom,platform-err-fg-gpio", 0);
+    if (gpio_is_valid(ctrl_pdata->err_fg_gpio)){
+        rc = gpio_request(ctrl_pdata->err_fg_gpio, "err_fg_gpio");
+		if (rc) {
+			pr_err("request err_fg_gpio failed, rc=%d\n",
+			       rc);
+        }else{
+        rc = gpio_tlmm_config(GPIO_CFG(
+            ctrl_pdata->err_fg_gpio, 0,
+            GPIO_CFG_INPUT,
+            GPIO_CFG_PULL_DOWN,
+            GPIO_CFG_2MA),
+            GPIO_CFG_ENABLE);
+        if (rc) {
+            pr_err("%s: unable to err_fg_gpio\n",
+            __func__);
+            gpio_free(ctrl_pdata->err_fg_gpio);
+        }else{
+                rc = gpio_direction_input(ctrl_pdata->err_fg_gpio);
+                if (rc) {
+                    pr_err("set_direction for err_fg_gpio failed, rc=%d\n",
+                    rc);
+                    gpio_free(ctrl_pdata->err_fg_gpio);
+                }
+            }
+        }
+	}
+#endif
 	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio))

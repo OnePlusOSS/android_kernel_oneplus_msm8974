@@ -1042,8 +1042,12 @@ static int voip_config_vocoder(struct snd_pcm_substream *substream)
 	uint32_t rate_type = 0;
 	uint32_t evrc_min_rate_type = 0;
 	uint32_t evrc_max_rate_type = 0;
-
+#ifdef VENDOR_EDIT
+        //guoguangyi@mutilmedia,always print the detail info for debug TRDM-136
+        pr_err("%s(): mode=%d, playback sample rate=%d, capture sample rate=%d\n",
+#else
         pr_debug("%s(): mode=%d, playback sample rate=%d, capture sample rate=%d\n",
+#endif
                   __func__, prtd->mode, prtd->play_samp_rate, prtd->cap_samp_rate);
 
 	if ((runtime->format != FORMAT_S16_LE &&
@@ -1154,7 +1158,12 @@ static int voip_config_vocoder(struct snd_pcm_substream *substream)
 				   evrc_min_rate_type,
 				   evrc_max_rate_type);
 	else {
+#ifdef VENDOR_EDIT
+        //guoguangyi@mutilmedia,print log for why it failed
+        pr_err("%s: Invalid rate playback %d, capture %d\n",
+#else
 		pr_debug("%s: Invalid rate playback %d, capture %d\n",
+#endif
 			 __func__, prtd->play_samp_rate,
 			 prtd->cap_samp_rate);
 

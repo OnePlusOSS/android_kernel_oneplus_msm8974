@@ -1959,6 +1959,11 @@ static struct platform_driver msm_hsl_platform_driver = {
 static int __init msm_serial_hsl_init(void)
 {
 	int ret;
+#ifdef VENDOR_EDIT
+	pr_info("%s:%d\n",__func__,console_set_on_cmdline);
+	if(!console_set_on_cmdline)
+		return -EPERM;
+#endif
 
 	ret = uart_register_driver(&msm_hsl_uart_driver);
 	if (unlikely(ret))

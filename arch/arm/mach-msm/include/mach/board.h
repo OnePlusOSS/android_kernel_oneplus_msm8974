@@ -189,8 +189,8 @@ struct msm_gpio_set_tbl {
 };
 
 struct msm_camera_gpio_num_info {
-	uint16_t gpio_num[10];
-	uint8_t valid[10];
+	uint16_t gpio_num[13];
+	uint8_t valid[13];
 };
 
 struct msm_camera_gpio_conf {

@@ -37,6 +37,11 @@ const char *const pm_states[PM_SUSPEND_MAX] = {
 	[PM_SUSPEND_MEM]	= "mem",
 };
 
+#ifdef CONFIG_VENDOR_EDIT
+extern void regulator_suspend_dump(void);
+extern void gpiolib_dump(void);
+#endif /* CONFIG_VENDOR_EDIT */
+
 static const struct platform_suspend_ops *suspend_ops;
 
 /**
@@ -172,8 +177,16 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 	if (!error) {
 		*wakeup = pm_wakeup_pending();
 		if (!(suspend_test(TEST_CORE) || *wakeup)) {
+#ifdef CONFIG_VENDOR_EDIT
+			dump_clk_enabled = true;
+			gpiolib_dump();
+			regulator_suspend_dump();
+#endif /* CONFIG_VENDOR_EDIT */
 			error = suspend_ops->enter(state);
+#ifdef CONFIG_VENDOR_EDIT
 			events_check_enabled = false;
+			dump_clk_enabled = false;
+#endif /* CONFIG_VENDOR_EDIT */
 		}
 		syscore_resume();
 	}

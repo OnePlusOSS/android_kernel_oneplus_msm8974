@@ -125,14 +125,23 @@
 			<0xfd922b00 0x2b0>,
 			<0xfdf30000 0x108>;
 		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
-		vdd-supply = <&pm8941_l22>;
+		//#ifndef VENDOR_EDIT
+		//vdd-supply = <&pm8941_l22>;
+		//#endif
 		vddio-supply = <&pm8941_l12>;
 		vdda-supply = <&pm8941_l2>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		qcom,platform-reset-gpio = <&pm8941_gpios 19 0>;
-		qcom,platform-enable-gpio = <&msmgpio 58 0>;
+		//#ifndef VENDOR_EDIT
+		//qcom,platform-enable-gpio = <&msmgpio 58 0>;
+		//#endif
 		qcom,platform-te-gpio = <&msmgpio 12 0>;
+		//#ifdef VENDOR_EDIT
+		qcom,platform-vci-enable-gpio = <&pm8941_gpios 33 0>;  //VCI
+		qcom,platform-esd-check-gpio = <&msmgpio 28 0>;
+		qcom,platform-err-fg-gpio = <&msmgpio 59 0>;
+		//#endif
 		qcom,platform-strength-ctrl = [ff 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
 		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
@@ -141,7 +150,8 @@
 			00 00 00 00 00 00 00 01 97
 			00 00 00 00 00 00 00 01 97
 			00 c0 00 00 00 00 00 01 bb];
-		qcom,platform-supply-entry1 {
+		//#ifndef VENDOR_EDIT
+		/*qcom,platform-supply-entry1 {
 				qcom,supply-name = "vdd";
 				qcom,supply-min-voltage = <3000000>;
 				qcom,supply-max-voltage = <3000000>;
@@ -151,7 +161,8 @@
 				qcom,supply-post-on-sleep = <20>;
 				qcom,supply-pre-off-sleep = <0>;
 				qcom,supply-post-off-sleep = <0>;
-		};
+		};*/
+		//#endif
 		qcom,platform-supply-entry2 {
 				qcom,supply-name = "vddio";
 				qcom,supply-min-voltage = <1800000>;
@@ -180,6 +191,9 @@
 		compatible = "qcom,mdss-dsi-ctrl";
 		label = "MDSS DSI CTRL->1";
 		cell-index = <1>;
+		//#ifdef VENDOR_EDIT
+		status = "disabled";
+		//#endif
 		reg = 	<0xfd922e00 0x1f8>,
 			<0xfd923100 0x2b0>,
 			<0xfdf30000 0x108>;
@@ -266,7 +280,8 @@
 		qcom,mdss-fb-map = <&mdss_fb2>;
 	};
 
-	mdss_edp: qcom,mdss_edp@fd923400 {
+//#ifndef VENDOR_EDIT
+	/*mdss_edp: qcom,mdss_edp@fd923400 {
 		compatible = "qcom,mdss-edp";
 		reg = <0xfd923400 0x700>,
 			<0xfd8c2000 0x1000>;
@@ -275,7 +290,8 @@
 		gpio-panel-en = <&msmgpio 58 0>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		gpio-panel-hpd = <&msmgpio 102 0>;
-	};
+	};*/
+//#endif
 };
 
 /include/ "msm8974-mdss-panels.dtsi"

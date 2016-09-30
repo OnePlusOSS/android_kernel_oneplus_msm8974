@@ -44,6 +44,8 @@
    and provided to the battery driver in the units desired for
    their framework which is 0.1DegC. True resolution of 0.1DegC
    will result in the below table size to increase by 10 times */
+/* OPPO 2013-06-07 wangjc Modify begin for use new adcmap. */
+#ifndef CONFIG_VENDOR_EDIT
 static const struct qpnp_vadc_map_pt adcmap_btm_threshold[] = {
 	{-300,	1642},
 	{-200,	1544},
@@ -129,6 +131,158 @@ static const struct qpnp_vadc_map_pt adcmap_btm_threshold[] = {
 	{780,	208},
 	{790,	203}
 };
+#else
+
+static bool use_external_charger = false;
+
+static const struct qpnp_vadc_map_pt adcmap_btm_threshold_oem[] = {
+	{-350, 1473},
+	{-340, 1460},
+	{-330, 1447},
+	{-320, 1434},
+	{-310, 1421},
+	{-300, 1408},
+	{-290, 1395},
+	{-280, 1381},
+	{-270, 1368},
+	{-260, 1354},
+	{-250, 1341},
+	{-240, 1327},
+	{-230, 1313},
+	{-220, 1300},
+	{-210, 1286},
+	{-200, 1273},
+	{-190, 1259},
+	{-180, 1246},
+	{-170, 1232},
+	{-160, 1219},
+	{-150, 1206},
+	{-140, 1193},
+	{-130, 1180},
+	{-120, 1173},
+	{-110, 1167},
+	{-100, 1155},
+	{-90 , 1142},
+	{-80 , 1130},
+	{-70 , 1118},
+	{-60 , 1106},
+	{-50 , 1094},
+	{-40 , 1083},
+	{-30 , 1072},
+	{-20 , 1061},
+	{-10 , 1050},
+	{0	, 1039},
+	{10	, 1029},
+	{20	, 1019},
+	{30	, 1009},
+	{40	, 999 },
+	{50	, 990 },
+	{60	, 981 },
+	{70	, 972 },
+	{80	, 963 },
+	{90	, 954 },
+	{100, 946 },
+	{110, 938 },
+	{120, 930 },
+	{130, 922 },
+	{140, 915 },
+	{150, 908 },
+	{160, 901 },
+	{170, 894 },
+	{180, 887 },
+	{190, 881 },
+	{200, 875 },
+	{210, 869 },
+	{220, 863 },
+	{230, 857 },
+	{240, 852 },
+	{250, 847 },
+	{260, 841 },
+	{270, 836 },
+	{280, 832 },
+	{290, 827 },
+	{300, 822 },
+	{310, 818 },
+	{320, 814 },
+	{330, 810 },
+	{340, 806 },
+	{350, 802 },
+	{360, 798 },
+	{370, 794 },
+	{380, 791 },
+	{390, 788 },
+	{400, 784 },
+	{410, 781 },
+	{420, 778 },
+	{430, 775 },
+	{440, 772 },
+	{450, 770 },
+	{460, 767 },
+	{470, 764 },
+	{480, 762 },
+	{490, 759 },
+	{500, 757 },
+	{510, 755 },
+	{520, 746 },
+	{530, 745 },
+	{540, 743 },
+	{550, 741 },
+	{560, 739 },
+	{570, 737 },
+	{580, 736 },
+	{590, 734 },
+	{600, 733 },
+	{610, 731 },
+	{620, 730 },
+	{630, 729 },
+	{640, 727 },
+	{650, 726 },
+	{660, 725 },
+	{670, 724 },
+	{680, 722 },
+	{690, 721 },
+	{700, 720 },
+	{710, 719 },
+	{720, 718 },
+	{730, 717 },
+	{740, 716 },
+	{750, 715 }
+};
+
+static const struct qpnp_vadc_map_pt adcmap_btm_threshold[] = {
+    {-400,  1696},
+    {-350,  1666},
+    {-300,  1629},
+    {-250,  1586},
+    {-200,  1525},
+    {-150,  1478},
+    {-100,  1414},
+    {-50,   1344},
+    {0, 1269},
+    {50,    1191},
+    {100,   1112},
+    {150,   1033},
+    {200,   955},
+    {250,   880},
+    {300,   809},
+    {350,   743},
+    {400,   682},
+    {450,   627},
+    {500,   576},
+    {550,   532},
+    {600,   492},
+    {650,   457},
+    {700,   426},
+    {750,   399},
+    {800,   376},
+    {850,   355},
+    {900,   337},
+    {950,   321},
+    {1000,  307}
+};
+
+#endif
+/* OPPO 2013-06-07 wangjc Modify end */
 
 static const struct qpnp_vadc_map_pt adcmap_qrd_btm_threshold[] = {
 	{-200,	1540},
@@ -621,11 +775,19 @@ int32_t qpnp_adc_scale_batt_therm(struct qpnp_vadc_chip *chip,
 	bat_voltage = qpnp_adc_scale_ratiometric_calib(adc_code,
 			adc_properties, chan_properties);
 
-	return qpnp_adc_map_temp_voltage(
+	if (use_external_charger) {
+		return qpnp_adc_map_temp_voltage(
+			adcmap_btm_threshold_oem,
+			ARRAY_SIZE(adcmap_btm_threshold_oem),
+			bat_voltage,
+			&adc_chan_result->physical);
+	} else {
+		return qpnp_adc_map_temp_voltage(
 			adcmap_btm_threshold,
 			ARRAY_SIZE(adcmap_btm_threshold),
 			bat_voltage,
 			&adc_chan_result->physical);
+	}
 }
 EXPORT_SYMBOL(qpnp_adc_scale_batt_therm);
 
@@ -939,11 +1101,21 @@ int32_t qpnp_adc_btm_scaler(struct qpnp_vadc_chip *chip,
 
 	pr_debug("warm_temp:%d and cool_temp:%d\n", param->high_temp,
 				param->low_temp);
-	rc = qpnp_adc_map_voltage_temp(
-		adcmap_btm_threshold,
-		ARRAY_SIZE(adcmap_btm_threshold),
-		(param->low_temp),
-		&low_output);
+
+	if (use_external_charger) {
+		rc = qpnp_adc_map_voltage_temp(
+			adcmap_btm_threshold_oem,
+			ARRAY_SIZE(adcmap_btm_threshold_oem),
+			(param->low_temp),
+			&low_output);
+	} else {
+		rc = qpnp_adc_map_voltage_temp(
+			adcmap_btm_threshold,
+			ARRAY_SIZE(adcmap_btm_threshold),
+			(param->low_temp),
+			&low_output);
+	}
+
 	if (rc) {
 		pr_debug("low_temp mapping failed with %d\n", rc);
 		return rc;
@@ -954,11 +1126,20 @@ int32_t qpnp_adc_btm_scaler(struct qpnp_vadc_chip *chip,
 	do_div(low_output, btm_param.adc_vref);
 	low_output += btm_param.adc_gnd;
 
-	rc = qpnp_adc_map_voltage_temp(
-		adcmap_btm_threshold,
-		ARRAY_SIZE(adcmap_btm_threshold),
-		(param->high_temp),
-		&high_output);
+	if (use_external_charger) {
+		rc = qpnp_adc_map_voltage_temp(
+			adcmap_btm_threshold_oem,
+			ARRAY_SIZE(adcmap_btm_threshold_oem),
+			(param->high_temp),
+			&high_output);
+	} else {
+		rc = qpnp_adc_map_voltage_temp(
+			adcmap_btm_threshold,
+			ARRAY_SIZE(adcmap_btm_threshold),
+			(param->high_temp),
+			&high_output);
+	}
+
 	if (rc) {
 		pr_debug("high temp mapping failed with %d\n", rc);
 		return rc;
@@ -1217,6 +1398,14 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 		pr_err("Invalid adc bit resolution property\n");
 		return -EINVAL;
 	}
+
+	if (!of_device_is_compatible(node, "qcom,qpnp-adc-tm")) {
+		if (of_property_read_bool(node,"oem,use-external-charger")) {
+			use_external_charger = true;
+			pr_err("use_external_charger = true\n");
+		}
+	}
+
 	adc_qpnp->adc_prop = adc_prop;
 
 	/* Get the peripheral address */

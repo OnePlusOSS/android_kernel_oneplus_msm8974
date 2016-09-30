@@ -384,8 +384,16 @@ static int __devinit persistent_ram_buffer_init(const char *name,
 
 	list_for_each_entry(ram, &persistent_ram_list, node) {
 		start = ram->start;
+#ifdef CONFIG_VENDOR_EDIT_OP_LASTKMSG
+/* add by yangrujin@bsp 2015/9/2, support last_kmsg feature */
+		printk("persistent_ram_buffer_init():  ram->num_descs = %d \r\n", ram->num_descs);
+#endif
 		for (i = 0; i < ram->num_descs; i++) {
 			desc = &ram->descs[i];
+#ifdef CONFIG_VENDOR_EDIT_OP_LASTKMSG
+/* add by yangrujin@bsp 2015/9/2, support last_kmsg feature */
+			printk("persistent_ram_buffer_init():  desc->name = %s ; name = %s \r\n", desc->name, name);
+#endif
 			if (!strcmp(desc->name, name)) {
 				*ramp = ram;
 				return persistent_ram_buffer_map(start,

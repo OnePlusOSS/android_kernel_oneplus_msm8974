@@ -157,6 +157,9 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_ULPS_CTRL,
 	MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
 	MDSS_EVENT_DSI_DYNAMIC_SWITCH,
+#ifdef VENDOR_EDIT
+	MDSS_EVENT_WAIT_TIMEOUT,
+#endif
 };
 
 struct lcd_panel_info {

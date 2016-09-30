@@ -18,6 +18,9 @@
 #include "mdss_debug.h"
 #include "mdss_mdp_trace.h"
 
+#ifdef VENDOR_EDIT
+extern volatile int is_panel_blank;
+#endif
 #define VSYNC_EXPIRE_TICK 4
 
 #define MAX_SESSIONS 2
@@ -676,7 +679,14 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	 * tx dcs command if had any
 	 */
 	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_CMDLIST_KOFF, NULL);
-
+#ifdef VENDOR_EDIT
+    mutex_lock(&(ctl->mfd->wakeup_lock));
+    if (is_panel_blank){
+	    mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_WAIT_TIMEOUT, NULL);
+	    is_panel_blank = 0;
+	}
+	mutex_unlock(&(ctl->mfd->wakeup_lock));
+#endif
 	mdss_mdp_cmd_set_sync_ctx(ctl, NULL);
 
 	mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);

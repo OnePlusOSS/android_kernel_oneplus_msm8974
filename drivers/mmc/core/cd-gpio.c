@@ -17,13 +17,19 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
+#include <linux/delay.h> //hefaxi@bsp,added delay for burn SIM card
+
+#ifdef VENDOR_EDIT
+int tf_card_status = 0;
+#endif
+
 struct mmc_cd_gpio {
 	unsigned int gpio;
 	bool status;
 	char label[0];
 };
 
-static int mmc_cd_get_status(struct mmc_host *host)
+ int mmc_cd_get_status(struct mmc_host *host)
 {
 	int ret = -ENOSYS;
 	struct mmc_cd_gpio *cd = host->hotplug.handler_priv;
@@ -43,7 +49,14 @@ static irqreturn_t mmc_cd_gpio_irqt(int irq, void *dev_id)
 	struct mmc_cd_gpio *cd = host->hotplug.handler_priv;
 	int status;
 
+#ifdef VENDOR_EDIT/*Add for sd hot plug*/
+    if(host->sdcard_2p95_en)
+		tf_card_status = status = mmc_cd_get_status(host);
+	else
+		status = mmc_cd_get_status(host);
+#else
 	status = mmc_cd_get_status(host);
+#endif
 	if (unlikely(status < 0))
 		goto out;
 
@@ -54,8 +67,24 @@ static irqreturn_t mmc_cd_gpio_irqt(int irq, void *dev_id)
 				"HIGH" : "LOW");
 		cd->status = status;
 
+#ifdef VENDOR_EDIT
+		if(!host->sdcard_2p95_en)
+			goto out_sdcard_2p95_en;
+
+//hefaxi@filesystems, 2015/08/07, add for drop power if sdcard not present
+		if(!cd->status){
+			pr_info("%s: set sdcard_2p95_en gpio(%d) low\n",
+				mmc_hostname(host),host->sdcard_2p95_en);
+			gpio_direction_output(host->sdcard_2p95_en,0);
+		}
+
+out_sdcard_2p95_en:
+#endif
 		/* Schedule a card detection after a debounce timeout */
-		mmc_detect_change(host, msecs_to_jiffies(100));
+		if(!host->sdcard_2p95_en)
+			mmc_detect_change(host, msecs_to_jiffies(100));
+		else
+			mmc_detect_change(host, msecs_to_jiffies(300));
 	}
 out:
 	return IRQ_HANDLED;

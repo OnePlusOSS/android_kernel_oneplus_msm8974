@@ -1,8 +1,6 @@
 #ifndef MMC_QUEUE_H
 #define MMC_QUEUE_H
 
-#define MMC_REQ_SPECIAL_MASK    (REQ_DISCARD | REQ_FLUSH)
-
 struct request;
 struct task_struct;
 

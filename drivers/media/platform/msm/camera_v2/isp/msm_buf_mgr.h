@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,11 +17,25 @@
 #include <mach/iommu_domains.h>
 #include "msm_sd.h"
 
-/*Buffer source can be from userspace / HAL*/
-#define BUF_SRC(id) (id & ISP_NATIVE_BUF_BIT)
+/* Buffer type could be userspace / HAL.
+ * Userspase could provide native or scratch buffer. */
+#define BUF_SRC(id) ( \
+		(id & ISP_SCRATCH_BUF_BIT) ? MSM_ISP_BUFFER_SRC_SCRATCH : \
+		(id & ISP_NATIVE_BUF_BIT) ? MSM_ISP_BUFFER_SRC_NATIVE : \
+				MSM_ISP_BUFFER_SRC_HAL)
+
 #define ISP_SHARE_BUF_CLIENT 2
+#define BUF_MGR_NUM_BUF_Q 28
+#define MAX_IOMMU_CTX 2
 
 struct msm_isp_buf_mgr;
+
+enum msm_isp_buffer_src_t {
+	MSM_ISP_BUFFER_SRC_HAL,
+	MSM_ISP_BUFFER_SRC_NATIVE,
+	MSM_ISP_BUFFER_SRC_SCRATCH,
+	MSM_ISP_BUFFER_SRC_MAX,
+};
 
 enum msm_isp_buffer_state {
 	MSM_ISP_BUFFER_STATE_UNUSED,         /* not used */
@@ -38,9 +52,14 @@ enum msm_isp_buffer_flush_t {
 	MSM_ISP_BUFFER_FLUSH_ALL,
 };
 
+enum msm_isp_buf_mgr_state {
+	MSM_ISP_BUF_MGR_ATTACH,
+	MSM_ISP_BUF_MGR_DETACH,
+};
+
 struct msm_isp_buffer_mapped_info {
 	unsigned long len;
-	unsigned long paddr;
+	dma_addr_t paddr;
 	struct ion_handle *handle;
 };
 
@@ -102,8 +121,16 @@ struct msm_isp_buf_ops {
 	int (*get_bufq_handle) (struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t session_id, uint32_t stream_id);
 
-	int (*get_buf) (struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
-		uint32_t bufq_handle, struct msm_isp_buffer **buf_info);
+	int (*get_buf_src) (struct msm_isp_buf_mgr *buf_mgr,
+		uint32_t bufq_handle, uint32_t *buf_src);
+
+	int (*get_buf)(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
+		uint32_t bufq_handle, struct msm_isp_buffer **buf_info,
+		uint32_t *buf_cnt);
+
+	int (*get_buf_by_index) (struct msm_isp_buf_mgr *buf_mgr,
+		uint32_t bufq_handle, uint32_t buf_index,
+		struct msm_isp_buffer **buf_info);
 
 	int (*put_buf) (struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index);
@@ -118,15 +145,20 @@ struct msm_isp_buf_ops {
 		uint32_t bufq_handle, uint32_t buf_index,
 		struct timeval *tv, uint32_t frame_id);
 	void (*register_ctx) (struct msm_isp_buf_mgr *buf_mgr,
-		struct device **iommu_ctx, int num_iommu_ctx);
+		struct device **iommu_ctx1, struct device **iommu_ctx2,
+		int num_iommu_ctx1, int num_iommu_ctx2);
 	int (*buf_mgr_init) (struct msm_isp_buf_mgr *buf_mgr,
 		const char *ctx_name, uint16_t num_buf_q);
 	int (*buf_mgr_deinit) (struct msm_isp_buf_mgr *buf_mgr);
+	int (*buf_mgr_debug) (struct msm_isp_buf_mgr *buf_mgr);
+	struct msm_isp_bufq * (*get_bufq)(struct msm_isp_buf_mgr *buf_mgr,
+		uint32_t bufq_handle);
 };
 
 struct msm_isp_buf_mgr {
 	int init_done;
 	uint32_t open_count;
+	uint32_t pagefault_debug;
 	spinlock_t lock;
 	uint16_t num_buf_q;
 	struct msm_isp_bufq *bufq;
@@ -141,9 +173,20 @@ struct msm_isp_buf_mgr {
 	int iommu_domain_num;
 	struct iommu_domain *iommu_domain;
 
+	/*Add secure domain num and domain */
+	int iommu_domain_num_secure;
+	struct iommu_domain *iommu_domain_secure;
+
+	/*Add secure mode*/
+	int secure_enable;
+
 	int num_iommu_ctx;
 	struct device *iommu_ctx[2];
 	struct list_head buffer_q;
+	int num_iommu_secure_ctx;
+	struct device *iommu_secure_ctx[2];
+	int attach_ref_cnt[MAX_PROTECTION_MODE][MAX_IOMMU_CTX];
+	enum msm_isp_buf_mgr_state attach_state;
 };
 
 int msm_isp_create_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
@@ -151,5 +194,11 @@ int msm_isp_create_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
 
 int msm_isp_proc_buf_cmd(struct msm_isp_buf_mgr *buf_mgr,
 	unsigned int cmd, void *arg);
+
+int msm_isp_create_secure_domain(struct msm_isp_buf_mgr *buf_mgr,
+	struct msm_iova_layout *iova_layout);
+
+int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
+	void *arg);
 
 #endif /* _MSM_ISP_BUF_H_ */

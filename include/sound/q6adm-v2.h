@@ -32,6 +32,10 @@ int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params);
 
 int adm_open(int port, int path, int rate, int mode, int topology,
 				int perf_mode, uint16_t bits_per_sample);
+#ifdef VENDOR_EDIT
+//#lifei@OnePlus.MultiMediaService, 2015/09/25 add set/get dsp interface
+int adm_set_dirac_enable_params(int port_id, uint32_t module_id, uint32_t param_id, int enable);
+#endif/*VENDOR_EDIT*/
 
 int adm_get_params(int port_id, uint32_t module_id, uint32_t param_id,
 			uint32_t params_length, char *params);

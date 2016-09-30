@@ -354,6 +354,9 @@ extern int unregister_pm_notifier(struct notifier_block *nb);
 
 /* drivers/base/power/wakeup.c */
 extern bool events_check_enabled;
+#ifdef CONFIG_VENDOR_EDIT
+extern bool dump_clk_enabled;
+#endif
 
 extern bool pm_wakeup_pending(void);
 extern bool pm_get_wakeup_count(unsigned int *count, bool block);

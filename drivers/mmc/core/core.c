@@ -30,6 +30,9 @@
 #include <linux/pm.h>
 #include <linux/slab.h>
 #include <linux/jiffies.h>
+#ifdef VENDOR_EDIT
+#include <linux/gpio.h>
+#endif
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
@@ -113,6 +116,30 @@ MODULE_PARM_DESC(
 			stats.bkops_level[level-1]++;			\
 		spin_unlock(&stats.lock);				\
 	} while (0);
+
+#ifdef VENDOR_EDIT
+struct mmc_cd_gpio {
+	unsigned int gpio;
+	bool status;
+	char label[0];
+};
+
+static int mmc_cd_get_status(struct mmc_host *host)
+{
+	int ret = -ENOSYS;
+	struct mmc_cd_gpio *cd = host->hotplug.handler_priv;
+
+	if (!cd || !gpio_is_valid(cd->gpio))
+		goto out;
+
+	ret = !gpio_get_value_cansleep(cd->gpio) ^
+		!!(host->caps2 & MMC_CAP2_CD_ACTIVE_HIGH);
+out:
+	return ret;
+}
+
+extern void removed_sd_card(struct mmc_host *host);
+#endif
 
 /*
  * Internal function. Schedule delayed work in the MMC work queue.
@@ -3120,6 +3147,12 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 	if (!mmc_attach_mmc(host))
 		return 0;
 
+#ifdef VENDOR_EDIT
+    if(host->sdcard_2p95_en){
+		gpio_direction_output(host->sdcard_2p95_en,0);
+	}
+#endif
+
 	mmc_power_off(host);
 	return -EIO;
 }
@@ -3203,6 +3236,12 @@ void mmc_rescan(struct work_struct *work)
 
 	mmc_bus_get(host);
 	mmc_rpm_hold(host, &host->class_dev);
+	#ifdef VENDOR_EDIT
+	if(host->sdcard_2p95_en && mmc_cd_get_status(host)){
+		gpio_direction_output(host->sdcard_2p95_en,1);
+		pr_info("Enable sd card power(2.95v)\n");
+	}
+	#endif
 
 	/*
 	 * if there is a _removable_ card registered, check whether it is
@@ -3696,7 +3735,29 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 		}
 		host->rescan_disable = 0;
 		spin_unlock_irqrestore(&host->lock, flags);
-		mmc_detect_change(host, 0);
+
+#ifdef VENDOR_EDIT
+//hefaxi@bsp, 2015/09/11, fix the bug that cannot rescan sd card after suspend
+		if(host->sdcard_2p95_en){
+			int status;
+
+			status = mmc_cd_get_status(host);
+			if (status == 0){
+
+				pr_debug("%s: %s: current status: %d, sdcard_2p95_en value: %d\n",
+					mmc_hostname(host),__func__,status,
+					gpio_get_value_cansleep(host->sdcard_2p95_en));
+
+				gpio_direction_output(host->sdcard_2p95_en,0);
+				mmc_detect_change(host, 0);
+			}else{
+			    mmc_detect_change(host, msecs_to_jiffies(300));
+			}
+		}else{
+		    mmc_detect_change(host, 0);
+		}
+#endif
+
 		break;
 
 	default:

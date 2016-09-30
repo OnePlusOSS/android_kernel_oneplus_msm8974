@@ -79,7 +79,12 @@
 #define clear_bit_pos(x, y)  (atomic_set(&x, (atomic_read(&x) & (~(1 << y)))))
 #define test_bit_pos(x, y) ((atomic_read(&x)) & (1 << y))
 
+#ifndef VENDOR_EDIT
+/*wangdongdong@MultiMedia.AudioDrv,2015/09/28,qc patch try to solve deadlock issue*/
 static int enable_ocmem_audio_voice = 1;
+#else
+static int enable_ocmem_audio_voice = 0;
+#endif
 module_param(enable_ocmem_audio_voice, int,
 			S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(enable_ocmem_audio_voice, "control OCMEM usage for audio/voice");

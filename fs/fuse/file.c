@@ -16,6 +16,12 @@
 #include <linux/compat.h>
 #include <linux/swap.h>
 
+#ifdef VENDOR_EDIT
+//liochen@filesystem, 2016/05/20, Add reserved memory feature
+#include <linux/statfs.h>
+#include <linux/namei.h>
+#endif
+
 static const struct file_operations fuse_direct_io_file_operations;
 
 static int fuse_send_open(struct fuse_conn *fc, u64 nodeid, struct file *file,
@@ -974,6 +980,65 @@ static ssize_t fuse_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	struct iov_iter i;
 	loff_t endbyte = 0;
 
+#ifdef VENDOR_EDIT
+//liochen@filesystem, 2016/05/20, Add reserved memory feature
+	struct kstatfs statfs;
+	u64 avail;
+	size_t size;
+	u32 reserved_blocks;
+	u32 reserved_bytes;
+	struct path data_partition_path;
+
+	reserved_bytes = get_fuse_conn(inode)->reserved_mem << 20;
+
+	if (reserved_bytes != 0) {
+
+		err = kern_path("/data",
+			LOOKUP_FOLLOW | LOOKUP_DIRECTORY, &data_partition_path);
+		if (unlikely(err))
+		{
+			printk(KERN_INFO "Failed to get data partition path(%d)\n",
+				(int)err);
+			err = vfs_statfs(&file->f_path, &statfs);
+			if (unlikely(err))
+			{
+				printk(KERN_ERR "statfs file path error(%d)\n",
+					(int)err);
+				return err;
+			}
+		}
+		else
+		{
+			err = vfs_statfs(&data_partition_path, &statfs);
+			if (unlikely(err))
+			{
+				printk(KERN_INFO "statfs data partition error(%d)\n",
+					(int)err);
+				err = vfs_statfs(&file->f_path, &statfs);
+				if (unlikely(err))
+				{
+					path_put(&data_partition_path);
+					return err;
+				}
+			}
+			path_put(&data_partition_path);
+		}
+
+		reserved_blocks = (reserved_bytes / statfs.f_bsize);
+
+		if (statfs.f_bavail < reserved_blocks)
+			statfs.f_bavail = 0;
+		else
+			statfs.f_bavail -= reserved_blocks;
+
+		avail = statfs.f_bavail * statfs.f_bsize;
+		size = iov_length(iov, nr_segs);
+
+		if ((u64)size > avail) {
+			return -ENOSPC;
+		}
+	}
+#endif
 	WARN_ON(iocb->ki_pos != pos);
 
 	ocount = 0;

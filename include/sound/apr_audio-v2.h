@@ -309,6 +309,29 @@ struct adm_cmd_set_pp_params_inband_v5 {
 	struct adm_param_data_v5	params;
 } __packed;
 
+#ifdef VENDOR_EDIT
+//#lifei@OnePlus.MultiMediaService, 2015/09/25 add set/get dsp interface
+/* Defined specifically for in-band use, includes params */
+struct adm_cmd_set_pp_params_dirac_v5 {
+	struct apr_hdr hdr;
+	/* LSW of parameter data payload address.*/
+	u32		payload_addr_lsw;
+	/* MSW of parameter data payload address.*/
+	u32		payload_addr_msw;
+	/* Memory map handle returned by ADM_CMD_SHARED_MEM_MAP_REGIONS */
+	/* command. If mem_map_handle is zero implies the message is in */
+	/* the payload */
+	u32		mem_map_handle;
+	/* Size in bytes of the variable payload accompanying this */
+	/* message or in shared memory. This is used for parsing the */
+	/* parameter payload. */
+	u32		payload_size;
+	/* Parameters passed for in band payload */
+	struct adm_param_data_v5	params;
+
+	u32     enable;
+} __packed;
+#endif/*VENDOR_EDIT*/
 
 /* Returns the status and COPP ID to an #ADM_CMD_DEVICE_OPEN_V5 command.
  */

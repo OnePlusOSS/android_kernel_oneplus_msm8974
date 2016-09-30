@@ -234,7 +234,24 @@ static int of_batterydata_load_battery_data(struct device_node *node,
 	OF_PROP_READ(batt_data->cutoff_uv, "v-cutoff-uv", node, rc, true);
 	OF_PROP_READ(batt_data->iterm_ua, "chg-term-ua", node, rc, true);
 
+#ifdef CONFIG_VENDOR_EDIT
+	batt_data->best_id_kohm = best_id_kohm;
+#else
 	batt_data->batt_id_kohm = best_id_kohm;
+#endif
+
+#ifdef CONFIG_VENDOR_EDIT
+		// add by xcb
+	pr_debug("reading qcom,battery-type property best_id_kohm = %d\n", best_id_kohm);
+	rc = of_property_read_string(node, "qcom,battery-type",
+					&batt_data->battery_type);
+
+	if (rc) {
+		pr_err("Error reading qcom,battery-type property rc=%d\n", rc);
+		batt_data->battery_type = NULL;
+		rc = 0;
+	}
+#endif /*CONFIG_VENDOR_EDIT*/
 
 	return rc;
 }
@@ -280,6 +297,11 @@ int of_batterydata_read_data(struct device_node *batterydata_container_node,
 
 	batt_id_kohm = of_batterydata_convert_battery_id_kohm(batt_id_uv,
 					rpull_up_kohm, vadc_vdd_uv);
+
+#ifdef CONFIG_VENDOR_EDIT
+	batt_data->batt_id_kohm = batt_id_kohm;
+#endif
+	pr_debug("Battery ID resistance is %dkOhm\n", batt_id_kohm);
 	best_node = NULL;
 	best_delta = 0;
 	best_id_kohm = 0;

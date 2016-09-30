@@ -1783,6 +1783,12 @@ static const struct snd_kcontrol_new mi2s_hl_mixer_controls[] = {
 	SOC_SINGLE_EXT("INTERNAL_FM_TX", MSM_BACKEND_DAI_SECONDARY_MI2S_RX,
 	MSM_BACKEND_DAI_INT_FM_TX, 1, 0, msm_routing_get_port_mixer,
 	msm_routing_put_port_mixer),
+#ifdef VENDOR_EDIT
+/*wangdongdong@MultiMedia.AudioDrv,2015/06/01,add for i2s*/
+	SOC_SINGLE_EXT("SLIM_0_TX", MSM_BACKEND_DAI_SECONDARY_MI2S_RX,
+	MSM_BACKEND_DAI_SLIMBUS_0_TX, 1, 0, msm_routing_get_port_mixer,
+	msm_routing_put_port_mixer),
+#endif
 };
 
 static const struct snd_kcontrol_new primary_mi2s_rx_mixer_controls[] = {
@@ -2966,6 +2972,90 @@ static const struct snd_kcontrol_new dolby_dap_param_end_point_controls[] = {
 	msm_routing_put_dolby_dap_endpoint_control),
 };
 
+#ifdef VENDOR_EDIT
+//#lifei@OnePlus.MultiMediaService, 2015/09/25 add set/get dsp interface
+static int msm_routing_get_dirac_enable_param_control(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol) {
+	/* not used */
+	return 0;
+}
+
+#define AUDIO_DIRAC_MODULEID  0x00012D00
+#define DIRAC_PARAM_HD_ENABLE  0x00012D03
+#define DIRAC_PARAM_HEADSET  0x00012D04
+
+static int msm_routing_put_dirac_enable_param_control(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol) {
+	int rc = 0;
+	int ret = 0;
+	int enable = ucontrol->value.integer.value[0];
+	pr_debug("%s: enable = %d , srs_port_id = %d\n", __func__,enable,srs_port_id);
+	if ((enable < 0) || (enable > 1)) {
+		pr_err(" %s Invalid arguments", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	mutex_lock(&routing_lock);
+	rc = adm_set_dirac_enable_params(srs_port_id,
+				AUDIO_DIRAC_MODULEID,
+				DIRAC_PARAM_HD_ENABLE,
+				enable);
+	mutex_unlock(&routing_lock);
+
+	if (rc <= 0) {
+		pr_err("%s: set parameters failed\n", __func__);
+		return -EINVAL;
+	}
+
+done:
+	return ret;
+}
+
+static int msm_routing_get_dirac_headset_param_control(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol) {
+	/* not used */
+	return 0;
+}
+
+static int msm_routing_put_dirac_headset_param_control(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol) {
+	int rc = 0;
+	int ret = 0;
+	int Selectenable = ucontrol->value.integer.value[0];
+	pr_debug("%s: Selectenable = %d , srs_port_id = %d\n", __func__,Selectenable,srs_port_id);
+	if ((Selectenable < 0) || (Selectenable > 5)) {
+		pr_err(" %s Invalid arguments", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	mutex_lock(&routing_lock);
+	rc = adm_set_dirac_enable_params(srs_port_id,
+				AUDIO_DIRAC_MODULEID,
+				DIRAC_PARAM_HEADSET,
+				Selectenable);
+	mutex_unlock(&routing_lock);
+	if (rc) {
+		pr_err("%s: set parameters failed\n", __func__);
+		return -EINVAL;
+	}
+
+done:
+	return ret;
+}
+
+
+static const struct snd_kcontrol_new set_dirac_enable_param_to_set_controls[] = {
+    SOC_SINGLE_EXT("SetDirac Enable", SND_SOC_NOPM ,
+	               0, 1, 0, msm_routing_get_dirac_enable_param_control,
+	               msm_routing_put_dirac_enable_param_control),
+	SOC_SINGLE_EXT("Select Dirac Headset", SND_SOC_NOPM ,
+	               0, 4, 0, msm_routing_get_dirac_headset_param_control,
+	               msm_routing_put_dirac_headset_param_control),	
+};
+#endif/*VENDOR_EDIT*/
+
 int msm_routing_get_rms_value_control(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol) {
 	int rc = 0;
@@ -3334,7 +3424,10 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("SEC_MI2S_DL_HL",
 		"Secondary MI2S_RX Hostless Playback",
 		0, 0, 0, 0),
-
+#ifdef VENDOR_EDIT
+/*wangdongdong@MultiMedia.AudioDrv,2015/06/01,add for i2s*/
+	SND_SOC_DAPM_AIF_OUT("SEC_MI2S_UL_HL", "Secondary MI2S Hostless Capture", 0, 0, 0, 0),
+#endif
 	SND_SOC_DAPM_AIF_IN("AUXPCM_DL_HL", "AUXPCM_HOSTLESS Playback",
 		0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("AUXPCM_UL_HL", "AUXPCM_HOSTLESS Capture",
@@ -3453,6 +3546,11 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 				&fm_switch_mixer_controls),
 	SND_SOC_DAPM_SWITCH("PCM_RX_DL_HL", SND_SOC_NOPM, 0, 0,
 				&pcm_rx_switch_mixer_controls),
+#ifdef VENDOR_EDIT
+/*wangdongdong@MultiMedia.AudioDrv,2015/06/01,add for i2s*/
+	SND_SOC_DAPM_SWITCH("SECMI2S_DL_HL", SND_SOC_NOPM, 0, 0,
+				&fm_switch_mixer_controls),
+#endif
 	SND_SOC_DAPM_SWITCH("PRI_MI2S_RX_DL_HL", SND_SOC_NOPM, 0, 0,
 				&pri_mi2s_rx_switch_mixer_controls),
 
@@ -3756,7 +3854,11 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 	{"SEC_MI2S_RX Port Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
 	{"SEC_MI2S_RX Port Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
-
+#ifdef VENDOR_EDIT
+/*wangdongdong@MultiMedia.AudioDrv,2015/06/01,add for i2s loopback*/
+	{"SEC_MI2S_RX Port Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
+	{"SEC_MI2S_RX", NULL, "SEC_MI2S_RX Port Mixer"},
+#endif
 	{"PRI_MI2S_RX Audio Mixer", "MultiMedia1", "MM_DL1"},
 	{"PRI_MI2S_RX Audio Mixer", "MultiMedia2", "MM_DL2"},
 	{"PRI_MI2S_RX Audio Mixer", "MultiMedia3", "MM_DL3"},
@@ -4070,7 +4172,11 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SLIM1_UL_HL", NULL, "SLIMBUS_1_TX"},
 	{"SLIM3_UL_HL", NULL, "SLIMBUS_3_TX"},
 	{"SLIM4_UL_HL", NULL, "SLIMBUS_4_TX"},
-
+#ifdef VENDOR_EDIT
+/*wangdongdong@MultiMedia.AudioDrv,2015/06/01,add for i2s*/
+	{"SECMI2S_DL_HL", "Switch", "SLIM0_DL_HL"},
+	{"SEC_MI2S_RX", NULL, "SECMI2S_DL_HL"},
+#endif
 	{"LSM1 MUX", "SLIMBUS_0_TX", "SLIMBUS_0_TX"},
 	{"LSM1 MUX", "SLIMBUS_1_TX", "SLIMBUS_1_TX"},
 	{"LSM1 MUX", "SLIMBUS_3_TX", "SLIMBUS_3_TX"},
@@ -4159,7 +4265,10 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SEC_I2S_RX", NULL, "SEC_I2S_DL_HL"},
 	{"PRI_MI2S_UL_HL", NULL, "PRI_MI2S_TX"},
 	{"SEC_MI2S_RX", NULL, "SEC_MI2S_DL_HL"},
-
+#ifdef VENDOR_EDIT
+/*wangdongdong@MultiMedia.AudioDrv,2015/06/01,add for i2s*/
+	{"SEC_MI2S_UL_HL", NULL, "SEC_MI2S_TX"},
+#endif
 	{"SLIMBUS_0_RX Port Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "AUX_PCM_UL_TX", "AUX_PCM_TX"},
@@ -4544,6 +4653,14 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, msm_voc_session_controls,
 				      ARRAY_SIZE(msm_voc_session_controls));
+
+#ifdef VENDOR_EDIT
+//#lifei@OnePlus.MultiMediaService, 2015/09/25 add set/get dsp interface
+    snd_soc_add_platform_controls(platform,
+				set_dirac_enable_param_to_set_controls,
+			ARRAY_SIZE(set_dirac_enable_param_to_set_controls));
+
+#endif/*VENDOR_EDIT*/
 
 	return 0;
 }

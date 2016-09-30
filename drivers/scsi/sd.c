@@ -96,6 +96,9 @@ MODULE_ALIAS_SCSI_DEVICE(TYPE_RBC);
 #else
 #define SD_MINORS	0
 #endif
+#ifdef VENDOR_EDIT
+#define MAX_CAPACITY 1125899906842624 //1024*1024*1024*1024*1024(1PB)
+#endif
 
 static void sd_config_discard(struct scsi_disk *, unsigned int);
 static int  sd_revalidate_disk(struct gendisk *);
@@ -1910,8 +1913,16 @@ sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer)
 			goto got_data;
 		if (sector_size == -ENODEV)
 			return;
+		#ifndef VENDOR_EDIT
 		if (sector_size < 0)
-			sector_size = read_capacity_10(sdkp, sdp, buffer);
+		#else
+		if (sector_size < 0 || sdkp->capacity > MAX_CAPACITY) {
+			sd_printk(KERN_NOTICE, sdkp, "Can't handle READ CAPACITY(16)Trying to use READ CAPACITY(10).\n");
+		#endif
+			sector_size = read_capacity_10(sdkp, sdp, buffer);			
+		#ifdef VENDOR_EDIT
+		}
+		#endif
 		if (sector_size < 0)
 			return;
 	} else {

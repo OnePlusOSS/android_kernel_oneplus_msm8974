@@ -271,6 +271,11 @@ struct mdss_dsi_ctrl_pdata {
 	int irq_cnt;
 	int rst_gpio;
 	int disp_en_gpio;
+#ifdef VENDOR_EDIT
+	int vci_en_gpio;
+	int esd_check_gpio;
+	int err_fg_gpio;
+#endif
 	int disp_te_gpio;
 	int mode_gpio;
 	int disp_te_gpio_requested;
@@ -316,6 +321,14 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_buf rx_buf;
 	struct dsi_buf status_buf;
 	int status_mode;
+
+#ifdef VENDOR_EDIT
+    struct timer_list delay_timer;
+	atomic_t delay_pending;
+	wait_queue_head_t delay_wait_q;
+	int (*wait_timeout) (struct mdss_dsi_ctrl_pdata *pdata);
+#endif
+
 };
 
 struct dsi_status_data {
@@ -386,6 +399,9 @@ int mdss_panel_get_dst_fmt(u32 bpp, char mipi_mode, u32 pixel_packing,
 int mdss_dsi_register_recovery_handler(struct mdss_dsi_ctrl_pdata *ctrl,
 		struct mdss_panel_recovery *recovery);
 
+#ifdef VENDOR_EDIT
+int mdss_dsi_panel_vci_en(struct mdss_panel_data *pdata, int enable);
+#endif
 static inline bool mdss_dsi_broadcast_mode_enabled(void)
 {
 	return ctrl_list[DSI_CTRL_MASTER]->shared_pdata.broadcast_enable &&

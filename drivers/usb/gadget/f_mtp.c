@@ -36,8 +36,43 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/f_mtp.h>
 
+#ifdef VENDOR_EDIT
+#define MTP_BULK_BUFFER_SIZE       65536
+#else
+//end add by jiachenghui for mtp trasfer speed,2015-8-5
 #define MTP_BULK_BUFFER_SIZE       16384
+#endif /* VENDOR_EDIT *///add by jiachenghui for mtp trasfer speed,2015-8-5
 #define INTR_BUFFER_SIZE           28
+
+/*
+* Currently tx and rx buffer len is 131072, inter buffer len is 28.
+* Tx buffer counts is 4, Rx is 2 and intr is 5.
+* In order avoid MTP can't work issue, use fixed memory.
+* 0x5800000(0xc5800000) ------
+*                      |  TX  | 0x20000 * 4
+* 0x5880000(0xc5880000) ------
+*                      |  RX  | 0x20000 * 2
+* 0x58c0000(0xc58c0000) ------
+*                      | INTR | 0x40(alignment) * 5
+*                       ------
+*/
+/*Anderson-MTP_cant_work+[*/
+#ifdef VENDOR_EDIT
+/*0x5800000, 0x5820000, 0x5840000, 0x5860000*/
+#define MTP_TX_BUFFER_BASE           0x5800000
+/*0x5880000, 0x58a0000*/
+#define MTP_RX_BUFFER_BASE           0x5880000
+/*0x58c0000, 0x58c0040, 0x58c0080, 0x58c0c00, 0x58c0100*/
+#define MTP_INTR_BUFFER_BASE         0x58c0000
+static int mtpBufferOffset =0;
+static bool useFixAddr = false;
+enum buf_type {
+	TX_BUFFER = 0,
+	RX_BUFFER,
+	INTR_BUFFER,
+};
+#endif /* VENDOR_EDIT */
+/*Anderson-MTP_cant_work+]*/
 
 /* String IDs */
 #define INTERFACE_STRING_INDEX	0
@@ -352,18 +387,56 @@ static inline struct mtp_dev *func_to_mtp(struct usb_function *f)
 	return container_of(f, struct mtp_dev, function);
 }
 
+#ifdef VENDOR_EDIT
+static struct usb_request *mtp_request_new(struct usb_ep *ep, int buffer_size, enum buf_type type)
+#else
 static struct usb_request *mtp_request_new(struct usb_ep *ep, int buffer_size)
+#endif /* VENDOR_EDIT */
 {
 	struct usb_request *req = usb_ep_alloc_request(ep, GFP_KERNEL);
 	if (!req)
 		return NULL;
 
 	/* now allocate buffers for the requests */
+	/*Anderson-MTP_cant_work*[*/
+	#ifdef VENDOR_EDIT
+	if(useFixAddr == true) {
+		if(type == TX_BUFFER){
+			req->buf = phys_to_virt(MTP_TX_BUFFER_BASE + mtpBufferOffset);
+			//pr_info("TX_BUFFE:%p\n", req->buf);
+		}
+		else if(type == RX_BUFFER){
+			req->buf = phys_to_virt(MTP_RX_BUFFER_BASE + mtpBufferOffset);
+			//pr_info("RX_BUFFE:%p\n", req->buf);
+		}
+		else{
+			req->buf = phys_to_virt(MTP_INTR_BUFFER_BASE + mtpBufferOffset);
+			//pr_info("INTR_BUFFE:%p\n", req->buf);
+		}
+	}
+	else{
+		req->buf = kmalloc(buffer_size, GFP_KERNEL);
+	}
+	memset(req->buf, 0, buffer_size);
+	#else
 	req->buf = kmalloc(buffer_size, GFP_KERNEL);
+	#endif /* VENDOR_EDIT */
+	/*Anderson-MTP_cant_work*]*/
 	if (!req->buf) {
 		usb_ep_free_request(ep, req);
 		return NULL;
 	}
+
+	/*Anderson-MTP_cant_work+[*/
+	#ifdef VENDOR_EDIT
+	if(useFixAddr == true) {
+		if(buffer_size == INTR_BUFFER_SIZE)
+			mtpBufferOffset += 0x40; /*alignment*/
+		else
+			mtpBufferOffset += buffer_size;
+	}
+	#endif /* VENDOR_EDIT */
+	/*Anderson-MTP_cant_work+]*/
 
 	return req;
 }
@@ -371,7 +444,19 @@ static struct usb_request *mtp_request_new(struct usb_ep *ep, int buffer_size)
 static void mtp_request_free(struct usb_request *req, struct usb_ep *ep)
 {
 	if (req) {
+		/*Anderson-MTP_cant_work*[*/
+		#ifdef VENDOR_EDIT
+		if(useFixAddr == true) {
+			req->buf = NULL;
+			mtpBufferOffset = 0;
+		}
+		else
+			kfree(req->buf);
+		#else
 		kfree(req->buf);
+		#endif
+		/*Anderson-MTP_cant_work+]*/
+
 		usb_ep_free_request(ep, req);
 	}
 }
@@ -424,7 +509,12 @@ static void mtp_complete_in(struct usb_ep *ep, struct usb_request *req)
 {
 	struct mtp_dev *dev = _mtp_dev;
 
+	#ifdef VENDOR_EDIT
+	//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+	if (req->status != 0 && dev->state != STATE_OFFLINE)
+	#else
 	if (req->status != 0)
+	#endif
 		dev->state = STATE_ERROR;
 
 	mtp_req_put(dev, &dev->tx_idle, req);
@@ -437,7 +527,13 @@ static void mtp_complete_out(struct usb_ep *ep, struct usb_request *req)
 	struct mtp_dev *dev = _mtp_dev;
 
 	dev->rx_done = 1;
+	#ifdef VENDOR_EDIT
+	//Anderson@, 2016/07/19, [TRDM-150]Delete file when reject USB
+	//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+	if (req->status != 0 && dev->state != STATE_OFFLINE)
+	#else
 	if (req->status != 0)
+	#endif
 		dev->state = STATE_ERROR;
 
 	wake_up(&dev->read_wq);
@@ -447,7 +543,12 @@ static void mtp_complete_intr(struct usb_ep *ep, struct usb_request *req)
 {
 	struct mtp_dev *dev = _mtp_dev;
 
+	#ifdef VENDOR_EDIT
+	//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+	if (req->status != 0 && dev->state != STATE_OFFLINE)
+	#else
 	if (req->status != 0)
+	#endif
 		dev->state = STATE_ERROR;
 
 	mtp_req_put(dev, &dev->intr_idle, req);
@@ -498,9 +599,27 @@ retry_tx_alloc:
 	if (mtp_tx_req_len > MTP_BULK_BUFFER_SIZE)
 		mtp_tx_reqs = 4;
 
+	#ifdef VENDOR_EDIT
+	/*
+	* References from init.qcom.early_boot.sh. It different with msm8996.
+	* Because if set in init.qcom.usb.sh, it too late int msm8974.
+	*/
+	if(mtp_tx_req_len == 131072 && mtp_rx_req_len == 131072 && mtp_tx_reqs == 4)
+		useFixAddr = true;
+	else
+		useFixAddr = false;
+
+	pr_info("useFixAddr:%s\n", useFixAddr?"true":"false");
+	mtpBufferOffset =0;
+	#endif /* VENDOR_EDIT */
+
 	/* now allocate requests for our endpoints */
 	for (i = 0; i < mtp_tx_reqs; i++) {
+		#ifdef VENDOR_EDIT
+		req = mtp_request_new(dev->ep_in, mtp_tx_req_len, TX_BUFFER);
+		#else
 		req = mtp_request_new(dev->ep_in, mtp_tx_req_len);
+		#endif
 		if (!req) {
 			if (mtp_tx_req_len <= MTP_BULK_BUFFER_SIZE)
 				goto fail;
@@ -524,8 +643,15 @@ retry_tx_alloc:
 		mtp_rx_req_len = MTP_BULK_BUFFER_SIZE;
 
 retry_rx_alloc:
+	#ifdef VENDOR_EDIT
+	mtpBufferOffset =0;
+	#endif /* VENDOR_EDIT */
 	for (i = 0; i < RX_REQ_MAX; i++) {
+		#ifdef VENDOR_EDIT
+		req = mtp_request_new(dev->ep_out, mtp_rx_req_len, RX_BUFFER);
+		#else
 		req = mtp_request_new(dev->ep_out, mtp_rx_req_len);
+		#endif
 		if (!req) {
 			if (mtp_rx_req_len <= MTP_BULK_BUFFER_SIZE)
 				goto fail;
@@ -537,8 +663,15 @@ retry_rx_alloc:
 		req->complete = mtp_complete_out;
 		dev->rx_req[i] = req;
 	}
+	#ifdef VENDOR_EDIT
+	mtpBufferOffset =0;
+	#endif /* VENDOR_EDIT */
 	for (i = 0; i < INTR_REQ_MAX; i++) {
+		#ifdef VENDOR_EDIT
+		req = mtp_request_new(dev->ep_intr, INTR_BUFFER_SIZE, INTR_BUFFER);
+		#else
 		req = mtp_request_new(dev->ep_intr, INTR_BUFFER_SIZE);
+		#endif /* VENDOR_EDIT */
 		if (!req)
 			goto fail;
 		req->complete = mtp_complete_intr;
@@ -561,7 +694,12 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 	int r = count, xfer, len;
 	int ret = 0;
 
+	#ifdef VENDOR_EDIT
+	//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+	DBG(cdev, "mtp_read(%zu) state:%d\n", count, dev->state);
+	#else
 	DBG(cdev, "mtp_read(%d)\n", count);
+	#endif
 
 	len = ALIGN(count, dev->ep_out->maxpacket);
 
@@ -637,7 +775,12 @@ done:
 		dev->state = STATE_READY;
 	spin_unlock_irq(&dev->lock);
 
+	#ifdef VENDOR_EDIT
+	//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+	DBG(cdev, "mtp_read returning %zd state:%d\n", r, dev->state);
+	#else
 	DBG(cdev, "mtp_read returning %d\n", r);
+	#endif
 	return r;
 }
 
@@ -651,7 +794,12 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 	int sendZLP = 0;
 	int ret;
 
+	#ifdef VENDOR_EDIT
+	//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+	DBG(cdev, "mtp_write(%zu) state:%d\n", count, dev->state);
+	#else
 	DBG(cdev, "mtp_write(%d)\n", count);
+	#endif
 
 	spin_lock_irq(&dev->lock);
 	if (dev->state == STATE_CANCELED) {
@@ -690,6 +838,11 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 			((req = mtp_req_get(dev, &dev->tx_idle))
 				|| dev->state != STATE_BUSY));
 		if (!req) {
+			#ifdef VENDOR_EDIT
+			//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+			DBG(cdev, "mtp_write request NULL ret:%d state:%d\n",
+				ret, dev->state);
+			#endif
 			r = ret;
 			break;
 		}
@@ -728,7 +881,12 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 		dev->state = STATE_READY;
 	spin_unlock_irq(&dev->lock);
 
+	#ifdef VENDOR_EDIT
+	//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+	DBG(cdev, "mtp_write returning %zd state:%d\n", r, dev->state);
+	#else
 	DBG(cdev, "mtp_write returning %d\n", r);
+	#endif
 	return r;
 }
 
@@ -929,8 +1087,12 @@ static void receive_file_work(struct work_struct *data)
 			read_req = NULL;
 		}
 	}
-
+	#ifdef VENDOR_EDIT
+	//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+	DBG(cdev, "send_file_work returning %d state:%d\n", r, dev->state);
+	#else
 	DBG(cdev, "receive_file_work returning %d\n", r);
+	#endif
 	/* write the result */
 	dev->xfer_result = r;
 	smp_wmb();
@@ -973,8 +1135,16 @@ static long mtp_ioctl(struct file *fp, unsigned code, unsigned long value)
 	struct file *filp = NULL;
 	int ret = -EINVAL;
 
+	#ifdef VENDOR_EDIT
+	//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+	if (mtp_lock(&dev->ioctl_excl)) {
+		DBG(dev->cdev, "ioctl returning EBUSY state:%d\n", dev->state);
+		return -EBUSY;
+	}
+	#else
 	if (mtp_lock(&dev->ioctl_excl))
 		return -EBUSY;
+	#endif
 
 	switch (code) {
 	case MTP_SEND_FILE:
@@ -1066,15 +1236,28 @@ fail:
 	spin_unlock_irq(&dev->lock);
 out:
 	mtp_unlock(&dev->ioctl_excl);
+	#ifdef VENDOR_EDIT
+	//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+	DBG(dev->cdev, "ioctl returning %d state:%d\n", ret, dev->state);
+	#else
 	DBG(dev->cdev, "ioctl returning %d\n", ret);
+	#endif
 	return ret;
 }
 
 static int mtp_open(struct inode *ip, struct file *fp)
 {
 	printk(KERN_INFO "mtp_open\n");
+	#ifdef VENDOR_EDIT
+	//Anderson@, 2016/07/20, References Qcom patch b7339fb71e8577de537b955b489148d307f91ccc
+	if (mtp_lock(&_mtp_dev->open_excl)) {
+		pr_err("%s mtp_release not called returning EBUSY\n", __func__);
+		return -EBUSY;
+	}
+	#else
 	if (mtp_lock(&_mtp_dev->open_excl))
 		return -EBUSY;
+	#endif
 
 	/* clear any error condition */
 	if (_mtp_dev->state != STATE_OFFLINE)

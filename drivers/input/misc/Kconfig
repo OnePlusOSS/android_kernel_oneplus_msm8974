@@ -724,3 +724,10 @@ config SENSORS_CAPELLA_CM36283
 	  module will be called CM36283.
 
 endif
+#VENDOR_EDIT taokai 2016-05-13 add for switch Profiles by triple state switch key
+config TRI_STATE_KEY
+	default n
+	tristate "switch Profiles by this triple key"
+	help
+	 Say Y here if you want to enable the feature.
+#add end 	  

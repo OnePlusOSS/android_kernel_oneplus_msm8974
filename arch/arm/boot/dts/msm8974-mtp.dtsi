@@ -24,9 +24,15 @@
 		status = "ok";
 	};
 
+//#ifndef VENDOR_EDIT
+//	qcom,mdss_dsi@fd922800 {
+//		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
+//	};
+//#else
 	qcom,mdss_dsi@fd922800 {
-		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
+		qcom,dsi-pref-prim-pan = <&dsi_samsung_s6e3fa3_1080p_cmd>;
 	};
+//#endif
 
 	qcom,mdss_mdp@fd900000 {
 		qcom,mdss-pref-prim-intf = "dsi";
@@ -637,12 +643,23 @@
 		qcom,pull = <4>;	/* QPNP_PIN_PULL_DN */
 		qcom,master-en = <1>;
 	};
-
-	gpio@e000 { /* GPIO 33 */
-		qcom,mode = <0>;        /* QPNP_PIN_MODE_DIG_IN */
-		qcom,pull = <4>;	/* QPNP_PIN_PULL_DN */
+//#ifndef VENDOR_EDIT
+//	gpio@e000 { /* GPIO 33 */
+//		qcom,mode = <0>;        /* QPNP_PIN_MODE_DIG_IN */
+//		qcom,pull = <4>;	/* QPNP_PIN_PULL_DN */
+//		qcom,master-en = <1>;
+//	};
+//#else
+gpio@e000 { /* GPIO 33 */
+		qcom,mode = <1>;		/* QPNP_PIN_MODE_DIG_OUT */
+		qcom,output-type = <0>;		/* QPNP_PIN_OUT_BUF_CMOS */
+		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
+		qcom,vin-sel = <2>;		/* QPNP_PIN_VIN2 */
+		qcom,out-strength = <1>;	/* QPNP_PIN_OUT_STRENGTH_LOW */
+		qcom,src-sel = <0>;		/* QPNP_PIN_SEL_FUNC_CONSTANT */
 		qcom,master-en = <1>;
 	};
+//#endif
 
 	gpio@e100 { /* GPIO 34 */
 		qcom,mode = <0>;        /* QPNP_PIN_MODE_DIG_IN */

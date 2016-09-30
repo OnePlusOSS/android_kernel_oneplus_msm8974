@@ -2436,6 +2436,12 @@ config MSM_MEMORY_DUMP
 		of deadlocks or cpu hangs these dump regions are captured to
 		give a snapshot of the system at the time of the crash.
 
+config VENDOR_EDIT_OP_LASTKMSG
+	bool "Enable last_kmsg"
+	default n
+	help
+                This most time can help us to check crash issue without parse dump.
+
 config MSM_DLOAD_MODE
 	bool "Enable download mode on crashes"
 	default n
@@ -3036,6 +3042,29 @@ config WALL_CLK_SYSFS
 	 Support the wallclk directory in sysfs filesystem to enable the
 	 wall clock simulation and read the current SFN.
 
+#ifdef VENDOR_EDIT
+#Wangjc@OnlineRd.Driver, 2013/10/23, Add for kernel OEM_DEVICE_IFNO macro
+config OEM_DEVICE_IFNO
+	bool "config oem device info"
+	default y
+	help
+	  This is the oem device info show function, open it will enable the function.
+#jiangyg@OnlineRd.PM, 2013/10/18, Add for device selection
+config OEM_DEBUG_ASSERT
+	bool "CONFIG_OEM_DEBUG_ASSERT"
+	help
+	  This is for debug assert
+
+#endif /* VENDOR_EDIT */
+#ifdef VENDOR_EDIT
+#yangrujin@bsp, 2015/5/21, Add for project info
+config OEM_PROJECT_INFO
+	bool "CONFIG_OEM_PROJECT_INFO"
+	default y
+	help
+	  This is for project info
+
+#endif /* VENDOR_EDIT */
 config KRAIT_REGULATOR
 	bool "Support Kraits powered via ganged regulators in the pmic"
 	help

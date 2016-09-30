@@ -499,6 +499,11 @@ struct fuse_conn {
 	/** number of dentries used in the above array */
 	int ctl_ndents;
 
+#ifdef VENDOR_EDIT
+//liochen@filesystem, 2016/05/20, Add reserved memory feature
+	unsigned reserved_mem;
+#endif
+
 	/** O_ASYNC requests */
 	struct fasync_struct *fasync;
 

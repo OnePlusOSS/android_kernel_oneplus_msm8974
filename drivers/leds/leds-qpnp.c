@@ -1531,6 +1531,12 @@ static void __qpnp_led_work(struct qpnp_led_data *led,
 	else
 		mutex_lock(&led->lock);
 
+    //#ifdef VENDOR_EDIT
+    if(led->id == QPNP_ID_RGB_GREEN || led->id == QPNP_ID_RGB_RED || led->id == QPNP_ID_RGB_BLUE)//modify for O2 have customization
+    {
+        mdelay(20);//wait for give a chance to change led->cdev.brightness to avoid flash before blink
+    }
+    //#endif
 	switch (led->id) {
 	case QPNP_ID_WLED:
 		rc = qpnp_wled_set(led);
@@ -2235,11 +2241,12 @@ static ssize_t duty_pcts_store(struct device *dev,
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	char *buffer;
 	ssize_t ret;
-	int i = 0;
+	//int i = 0;
 	int max_duty_pcts;
 	struct pwm_config_data *pwm_cfg;
 	u32 previous_num_duty_pcts;
-	int value;
+	//int value;
+	int rets;
 	int *previous_duty_pcts;
 
 	led = container_of(led_cdev, struct qpnp_led_data, cdev);
@@ -2270,15 +2277,36 @@ static ssize_t duty_pcts_store(struct device *dev,
 
 	buffer = (char *)buf;
 
+	#ifndef VENDOR_EDIT
 	for (i = 0; i < max_duty_pcts; i++) {
 		if (buffer == NULL)
 			break;
 		ret = sscanf((const char *)buffer, "%u,%s", &value, buffer);
 		pwm_cfg->old_duty_pcts[i] = value;
+		printk("pwm_cfg->old_duty_pcts[%d] = %d\n",pwm_cfg->old_duty_pcts[i]);
 		num_duty_pcts++;
 		if (ret <= 1)
 			break;
 	}
+
+	#else
+	rets= sscanf((const char *)buffer,
+		"%x %x %x %x %x %x %x %x %x %x %x ",
+			    &pwm_cfg->old_duty_pcts[0], &pwm_cfg->old_duty_pcts[1],
+			    &pwm_cfg->old_duty_pcts[2], &pwm_cfg->old_duty_pcts[3],
+			    &pwm_cfg->old_duty_pcts[4], &pwm_cfg->old_duty_pcts[5],
+			    &pwm_cfg->old_duty_pcts[6],&pwm_cfg->old_duty_pcts[7],
+			    &pwm_cfg->old_duty_pcts[8], &pwm_cfg->old_duty_pcts[9],
+			    &pwm_cfg->old_duty_pcts[10]);
+	if(rets != 11)
+	{
+		pr_err("duty_pcts_store: Invalid paramter:%d\n", rets);
+			return -1;
+	}
+
+	num_duty_pcts = 11;
+
+	#endif /*VENDOR_EDIT*/
 
 	if (num_duty_pcts >= max_duty_pcts) {
 		dev_err(&led->spmi_dev->dev,

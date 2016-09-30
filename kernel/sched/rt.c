@@ -560,7 +560,13 @@ static inline struct rt_bandwidth *sched_rt_bandwidth(struct rt_rq *rt_rq)
 static int do_balance_runtime(struct rt_rq *rt_rq)
 {
 	struct rt_bandwidth *rt_b = sched_rt_bandwidth(rt_rq);
+#ifndef CONFIG_VENDOR_EDIT
+/* OPPO 2014.11.07 zhenwenxian modify begin for sometimes  cpu hang */	
+	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+#else
 	struct root_domain *rd = rq_of_rt_rq(rt_rq)->rd;
+/* OPPO 2014.11.07 zhenwenxian modify end*/
+#endif //CONFIG_VENDOR_EDIT
 	int i, weight, more = 0;
 	u64 rt_period;
 

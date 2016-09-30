@@ -23,6 +23,28 @@
 #include <linux/err.h>
 
 #include "mdss_dsi.h"
+#ifdef VENDOR_EDIT
+#include <linux/wait.h>
+#include <linux/project_info.h>
+/* 2013-10-24  Add begin for panel info */
+#include <mach/device_info.h>
+/* 2013-10-24 Add end */
+/* 2013-12-09 Add begin for disable continous display for ftm, rf, wlan mode */
+#include <linux/boot_mode.h>
+/* 2013-12-09 Add end */
+/* 2014-02-11 add begin*/
+#include <linux/pcb_version.h>
+/*  2014-02-11add end */
+#endif
+#ifdef VENDOR_EDIT
+/* Mobile Phone Software Dept.Driver, 2014/02/24  Add for ESD test */
+#include <linux/switch.h>
+#endif
+
+#ifdef VENDOR_EDIT
+extern  int lm3630_bank_a_update_status(u32 bl_level);
+extern int push_component_info(enum COMPONENT_TYPE type, char *version, char * manufacture);
+#endif
 
 #define DT_CMD_HDR 6
 
@@ -38,6 +60,547 @@ void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 				__func__, ctrl->pwm_lpg_chan);
 	}
 }
+#ifdef VENDOR_EDIT
+#define WAIT_INIT_TIMEOUT 125 //Samsung s6e3fa3 panel init delay.
+int mdss_dsi_start_timer(struct mdss_panel_data *pdata)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	if (ctrl->wait_timeout){
+        del_timer(&(ctrl->delay_timer));
+        ctrl->delay_timer.expires = jiffies + msecs_to_jiffies(WAIT_INIT_TIMEOUT);
+        atomic_inc(&ctrl->delay_pending);
+        add_timer(&(ctrl->delay_timer));
+	}
+
+	return 0;
+}
+
+int mdss_dsi_stop_timer(struct mdss_panel_data *pdata)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	if (ctrl->wait_timeout){
+		del_timer(&(ctrl->delay_timer));
+	}
+    atomic_set(&ctrl->delay_pending, 0);
+
+    return 0;
+}
+
+void mdss_dsi_timer_cb(unsigned long data)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl = (struct mdss_dsi_ctrl_pdata *)data;
+
+	if (!ctrl) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+	atomic_set(&ctrl->delay_pending, 0);
+	wake_up_all(&ctrl->delay_wait_q);
+}
+
+int mdss_dsi_wait_timeout(struct mdss_dsi_ctrl_pdata *pdata)
+{
+    int ret=0;
+
+	struct mdss_dsi_ctrl_pdata *ctrl = pdata;
+
+	if (!ctrl) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+    ret = wait_event_timeout(ctrl->delay_wait_q,
+		(!atomic_read(&ctrl->delay_pending)),
+		msecs_to_jiffies(WAIT_INIT_TIMEOUT));
+	if (!ret) {
+		pr_err("wait for timeout ret= %d pending=%d\n",
+				ret, atomic_read(&ctrl->delay_pending));
+	}
+    atomic_set(&ctrl->delay_pending, 0);
+
+	return ret;
+}
+#endif
+
+#ifdef VENDOR_EDIT
+#define ESD_TE_CHECK_ON
+struct mdss_dsi_ctrl_pdata *panel_data;
+bool is_samsung_s6e3fa3_panel = 0;
+static bool first_run_init=1;
+static bool cont_splash_flag;
+
+#ifdef ESD_TE_CHECK_ON
+#define LCD_TE_GPIO  28
+unsigned long flags;
+static bool first_run_reset = 1;
+static int irq;
+static int te_state = 0;
+static struct switch_dev display_switch;
+static struct delayed_work techeck_work;
+static struct completion te_comp;
+
+DEFINE_SPINLOCK(te_count_lock);
+DEFINE_SPINLOCK(te_state_lock);
+
+static irqreturn_t TE_irq_thread_fn(int irq, void *dev_id)
+{
+	complete(&te_comp);
+	return IRQ_HANDLED;
+}
+static int operate_display_switch(void)
+{
+    int ret = 0;
+
+    pr_err("%s : state=%d.\n", __func__, te_state);
+    spin_lock_irqsave(&te_state_lock, flags);
+    if(te_state)
+        te_state = 0;
+    else
+        te_state = 1;
+    spin_unlock_irqrestore(&te_state_lock, flags);
+
+    switch_set_state(&display_switch, te_state);
+
+    return ret;
+}
+static void techeck_work_func( struct work_struct *work )
+{
+	int ret = 0;
+
+	INIT_COMPLETION(te_comp);
+	enable_irq(irq);
+    ret = wait_for_completion_killable_timeout(&te_comp,
+						msecs_to_jiffies(100));
+	if(ret == 0){
+		disable_irq(irq);
+		operate_display_switch();
+		return;
+	}
+	disable_irq(irq);
+	schedule_delayed_work(&techeck_work, msecs_to_jiffies(2000));
+}
+
+
+static ssize_t attr_mdss_dispswitch(struct device *dev,
+                                     struct device_attribute *attr, char *buf)
+{
+    printk("ESD function test--------\n");
+    operate_display_switch();
+    return 0;
+}
+
+static struct class * mdss_lcd;
+static struct device * dev_lcd;
+static struct device_attribute mdss_lcd_attrs[] = {
+	__ATTR(dispswitch, S_IRUGO|S_IWUSR, attr_mdss_dispswitch, NULL),
+	__ATTR_NULL,
+	};
+#endif
+
+struct dsi_panel_cmds cabc_off_sequence;
+struct dsi_panel_cmds cabc_user_interface_image_sequence;
+struct dsi_panel_cmds cabc_still_image_sequence;
+struct dsi_panel_cmds cabc_video_image_sequence;
+
+struct dsi_panel_cmds gamma1;
+struct dsi_panel_cmds gamma2;
+struct dsi_panel_cmds gamma3;
+struct dsi_panel_cmds gamma4;
+extern int gamma_index ;
+
+
+static bool flag_lcd_off = false;
+static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+			struct dsi_panel_cmds *pcmds);
+
+
+extern int set_backlight_pwm(int state);
+enum
+{
+    CABC_CLOSE = 0,
+    CABC_LOW_MODE,
+    CABC_MIDDLE_MODE,
+    CABC_HIGH_MODE,
+
+};
+
+int cabc_mode = CABC_HIGH_MODE; //default mode level 3 in dtsi file
+static DEFINE_MUTEX(cabc_mutex);
+
+
+
+static char dcs_cmd_oem_0[2]  = {0xb0, 0x04};
+static char dcs_cmd_oem_1[20] = {0xc8, 0x01, 0x0A, 0xFD,
+								   0x03, 0x01, 0xE8, 0x00,
+								   0x00, 0x03, 0xFC, 0xF5,
+								   0xA1, 0x00, 0x00, 0x01,
+								   0xFD, 0x06, 0xFC, 0x00,};
+static char dcs_cmd_oem_2[2]  = {0xd6, 0x01};
+static char dcs_cmd_oem_3[2]  = {0xb0, 0x03};
+
+static struct dsi_cmd_desc user_defined_oem_gamma[] = {
+	{{DTYPE_GEN_WRITE2, 1, 0, 1, 0, sizeof(dcs_cmd_oem_0)},dcs_cmd_oem_0},
+	{{DTYPE_GEN_LWRITE, 1, 0, 1, 0, sizeof(dcs_cmd_oem_1)},dcs_cmd_oem_1},
+	{{DTYPE_GEN_WRITE2, 1, 0, 1, 0, sizeof(dcs_cmd_oem_2)},dcs_cmd_oem_2},
+	{{DTYPE_GEN_WRITE2, 1, 0, 1, 0, sizeof(dcs_cmd_oem_3)},dcs_cmd_oem_3},
+};
+
+void send_user_defined_gamma(char * buf)
+{
+	int i=0,len,limt_len,temp;
+	char temp_buf[100];
+	char * p1,*p2,*user_gamma=NULL;
+	struct dcs_cmd_req cmdreq;
+
+	if (is_samsung_s6e3fa3_panel){
+        return;
+    }
+	mutex_lock(&cabc_mutex);
+	if(flag_lcd_off == true)
+    {
+        printk(KERN_INFO "lcd is off,don't allow to set user gamma !\n");
+        mutex_unlock(&cabc_mutex);
+        return;
+    }
+	if((get_pcb_version() < 20)||(get_pcb_version() >=30))
+	{/*add*/
+		user_gamma = dcs_cmd_oem_1;
+		limt_len = sizeof(dcs_cmd_oem_1);
+	}
+	if(user_gamma == NULL)
+
+	{
+	mutex_unlock(&cabc_mutex); return;
+	}
+	p1=buf;
+	p2=temp_buf;
+	pr_err("%s \n",p1);
+	while(*p1!='\0'){
+		if(*p1==' ') {p1++;continue;}
+		*p2 = *p1;
+		p2++;
+		p1++;
+	}
+	*p2 ='\0';
+	p2=temp_buf;
+	len =strlen(p2);
+	pr_err("len = %d \n",len);
+	if( len/2 >limt_len){
+			 mutex_unlock(&cabc_mutex);
+			 pr_err("invalid gamma intput \n");
+			 return;
+	}
+	for(i=0;i<len;i++)
+	{
+		if(*p2>='0' && *p2 <='9')
+			temp =*p2-'0';
+		else if(*p2>='a'&& *p2<='f')
+			temp =*p2-'a'+10;
+		else if(*p2>='A'&& *p2<='F')
+			temp =*p2-'A'+10;
+		if(i%2==0)
+			user_gamma[i/2] = temp*16;
+		else
+			user_gamma[i/2]+=temp;
+		p2++;
+	}
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = user_defined_oem_gamma;
+	cmdreq.cmds_cnt = 4;
+	cmdreq.flags = CMD_REQ_COMMIT;
+	mdss_dsi_cmdlist_put(panel_data, &cmdreq);
+	mutex_unlock(&cabc_mutex);
+	return;
+}
+
+
+
+
+void set_gamma(int index)
+{
+	printk("%s : %d \n",__func__,index);
+
+	if (is_samsung_s6e3fa3_panel){
+        return;
+    }
+    mutex_lock(&cabc_mutex);
+
+	if(flag_lcd_off == true)
+    {
+        printk(KERN_INFO "lcd is off,don't allow to set gamma\n");
+        mutex_unlock(&cabc_mutex);
+        return;
+    }
+  //  mdss_dsi_clk_ctrl(panel_data, 1);
+	if(index <= 0 || index >4){
+		mutex_unlock(&cabc_mutex);
+        return;
+	}
+	switch(index)
+    {
+		case 1:
+			 mdss_dsi_panel_cmds_send(panel_data, &gamma1);
+			 break;
+		case 2:
+			 mdss_dsi_panel_cmds_send(panel_data, &gamma2);
+			 break;
+		case 3:
+
+			 mdss_dsi_panel_cmds_send(panel_data, &gamma3);
+			 break;
+		case 4:
+			 mdss_dsi_panel_cmds_send(panel_data, &gamma4);
+			 break;
+	}
+//	mdss_dsi_clk_ctrl(panel_data, 0);
+    mutex_unlock(&cabc_mutex);
+
+}
+
+void set_resume_gamma(int index)
+{
+	pr_debug("%s : %d \n",__func__,index);
+	if (is_samsung_s6e3fa3_panel){
+        return;
+    }
+   if(index <= 1 || index >4){
+        return;
+	}
+    switch(index)
+    {
+		case 1:
+			 mdss_dsi_panel_cmds_send(panel_data, &gamma1);
+			 break;
+		case 2:
+			 mdss_dsi_panel_cmds_send(panel_data, &gamma2);
+			 break;
+		case 3:
+			 mdss_dsi_panel_cmds_send(panel_data, &gamma3);
+			 break;
+		case 4:
+			 mdss_dsi_panel_cmds_send(panel_data, &gamma4);
+			 break;
+		default:
+			pr_err("%s : invalid gamma index %d  \n",__func__,index);
+			break;
+	}
+}
+
+int set_cabc(int level)
+{
+    int ret = 0;
+
+	if (is_samsung_s6e3fa3_panel){
+        return 0;
+    }
+
+	printk("%s : %d \n",__func__,level);
+    mutex_lock(&cabc_mutex);
+	if(flag_lcd_off == true)
+    {
+        printk(KERN_INFO "lcd is off,don't allow to set cabc\n");
+        cabc_mode = level;
+        mutex_unlock(&cabc_mutex);
+        return 0;
+    }
+
+  //  mdss_dsi_clk_ctrl(panel_data, 1);
+    switch(level)
+    {
+        case 0:
+            set_backlight_pwm(0);
+			 mdss_dsi_panel_cmds_send(panel_data, &cabc_off_sequence);
+            cabc_mode = CABC_CLOSE;
+            break;
+        case 1:
+            mdss_dsi_panel_cmds_send(panel_data, &cabc_user_interface_image_sequence);
+            cabc_mode = CABC_LOW_MODE;
+			set_backlight_pwm(1);
+            break;
+        case 2:
+            mdss_dsi_panel_cmds_send(panel_data, &cabc_still_image_sequence);
+            cabc_mode = CABC_MIDDLE_MODE;
+			set_backlight_pwm(1);
+            break;
+        case 3:
+            mdss_dsi_panel_cmds_send(panel_data, &cabc_video_image_sequence);
+            cabc_mode = CABC_HIGH_MODE;
+			set_backlight_pwm(1);
+            break;
+        default:
+            pr_err("%s Leavel %d is not supported!\n",__func__,level);
+            ret = -1;
+            break;
+    }
+  //  mdss_dsi_clk_ctrl(panel_data, 0);
+    mutex_unlock(&cabc_mutex);
+    return ret;
+
+}
+
+static int set_cabc_resume_mode(int mode)
+{
+    int ret;
+
+	if (is_samsung_s6e3fa3_panel){
+        return 0;
+    }
+	printk("%s : %d  \n",__func__,mode);
+    switch(mode)
+    {
+        case 0:
+            set_backlight_pwm(0);
+			mdss_dsi_panel_cmds_send(panel_data, &cabc_off_sequence);
+            break;
+        case 1:
+            mdss_dsi_panel_cmds_send(panel_data, &cabc_user_interface_image_sequence);
+			set_backlight_pwm(1);
+            break;
+        case 2:
+            mdss_dsi_panel_cmds_send(panel_data, &cabc_still_image_sequence);
+			set_backlight_pwm(1);
+            break;
+        case 3:
+           mdss_dsi_panel_cmds_send(panel_data, &cabc_video_image_sequence);
+		   set_backlight_pwm(1);
+            break;
+        default:
+            pr_err("%s  %d is not supported!\n",__func__,mode);
+            ret = -1;
+            break;
+    }
+    return ret;
+}
+
+enum
+{
+    ACL_LEVEL_0 = 0,
+    ACL_LEVEL_1,
+    ACL_LEVEL_2,
+    ACL_LEVEL_3,
+
+};
+int acl_mode = ACL_LEVEL_1; //default mode level 0
+
+static char set_acl[2] = {0x55, 0x0};	/* DTYPE_DCS_WRITE1 */
+static struct dsi_cmd_desc set_acl_cmd = {
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(set_acl)},
+	set_acl
+};
+void set_acl_mode(int level)
+{
+	struct dcs_cmd_req cmdreq;
+
+	if (!is_samsung_s6e3fa3_panel){
+        return;
+    }
+	pr_err("%s: level=%d\n", __func__, level);
+	if(level < 0 || level > 3){
+		pr_err("%s: invalid input %d! \n",__func__,level);
+		return;
+	}
+	mutex_lock(&cabc_mutex);
+	acl_mode = level;
+	if(flag_lcd_off == true)
+    {
+        printk(KERN_INFO "lcd is off,don't allow to set acl mode !\n");
+        mutex_unlock(&cabc_mutex);
+        return;
+    }
+	set_acl[1] = (unsigned char)level;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &set_acl_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mdss_dsi_cmdlist_put(panel_data, &cmdreq);
+	mutex_unlock(&cabc_mutex);
+}
+
+static int send_samsung_fit_cmd(struct dsi_cmd_desc * cmd , int count)
+{
+	struct dcs_cmd_req cmdreq;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = cmd;
+	cmdreq.cmds_cnt = count;
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+	return mdss_dsi_cmdlist_put(panel_data, &cmdreq);
+}
+
+static int set_acl_resume_mode(int level)
+{
+	if (!is_samsung_s6e3fa3_panel){
+        return 0;
+    }
+	pr_err("%s: level=%d\n", __func__, level);
+	set_acl[1] = (unsigned char)level;
+	return send_samsung_fit_cmd(&set_acl_cmd,1);
+}
+
+int hbm_mode=0;
+static char set_hbm[2] = {0x53, 0x20};	/* DTYPE_DCS_WRITE1 */
+static struct dsi_cmd_desc set_hbm_cmd = {
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(set_hbm)},
+	set_hbm
+};
+void set_hbm_mode(int level)
+{
+	struct dcs_cmd_req cmdreq;
+
+	if (!is_samsung_s6e3fa3_panel){
+        return;
+    }
+	pr_debug("%s: level=%d\n", __func__, level);
+	if(level < 0 || level > 1){
+		pr_err("%s: invalid input %d! \n",__func__,level);
+		return;
+	}
+	mutex_lock(&cabc_mutex);
+	if(flag_lcd_off == true)
+    {
+        printk(KERN_INFO "lcd is off,don't allow to set hbm !\n");
+        mutex_unlock(&cabc_mutex);
+        return;
+    }
+
+    hbm_mode = level;
+	if(level == 0)
+		set_hbm[1] = 0x20;
+	else
+		set_hbm[1] = 0xe0;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &set_hbm_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mdss_dsi_cmdlist_put(panel_data, &cmdreq);
+	mutex_unlock(&cabc_mutex);
+}
+#endif
 
 static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 {
@@ -241,7 +804,12 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			pr_err("gpio request failed\n");
 			return rc;
 		}
-		if (!pinfo->panel_power_on) {
+	#ifndef VENDOR_EDIT
+		if (!pinfo->panel_power_on)
+	#else
+        if (!pinfo->cont_splash_enabled)
+	#endif
+	    {
 			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 				gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
 
@@ -277,6 +845,54 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	}
 	return rc;
 }
+
+#ifdef VENDOR_EDIT
+int mdss_dsi_panel_vci_en(struct mdss_panel_data *pdata, int enable)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_info *pinfo = NULL;
+	int rc = 0;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+    if (!gpio_is_valid(ctrl_pdata->vci_en_gpio)) {
+		pr_debug("%s:%d, vci_en_gpio line not configured\n",
+			   __func__, __LINE__);
+		return rc;
+	}
+	pr_debug("%s: vci_en_gpio enable = %d\n", __func__, enable);
+	pinfo = &(ctrl_pdata->panel_data.panel_info);
+
+	if (enable) {
+	    rc = gpio_request(ctrl_pdata->vci_en_gpio,
+					"vci_enable");
+		if (rc) {
+			pr_err("request vci_enable gpio failed, rc=%d\n",
+				       rc);
+			return rc;
+		}
+		if (!pinfo->panel_power_on)
+		{
+            //power on vci
+            if (gpio_is_valid(ctrl_pdata->vci_en_gpio)){
+                gpio_set_value((ctrl_pdata->vci_en_gpio), 1);
+            }
+		}
+	} else {
+		if (gpio_is_valid(ctrl_pdata->vci_en_gpio)) {
+			gpio_set_value((ctrl_pdata->vci_en_gpio), 0);
+			gpio_free(ctrl_pdata->vci_en_gpio);
+		}
+	}
+	return rc;
+}
+#endif
 
 static char caset[] = {0x2a, 0x00, 0x00, 0x03, 0x00};	/* DTYPE_DCS_LWRITE */
 static char paset[] = {0x2b, 0x00, 0x00, 0x05, 0x00};	/* DTYPE_DCS_LWRITE */
@@ -367,7 +983,13 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 							u32 bl_level)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-
+#ifdef VENDOR_EDIT
+    if(is_samsung_s6e3fa3_panel){
+    }else{
+		lm3630_bank_a_update_status(bl_level);
+		return;
+	}
+#endif
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
@@ -428,9 +1050,47 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
+#ifdef VENDOR_EDIT
+	if (ctrl->on_cmds.cmd_cnt){
+        mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
+        set_resume_gamma(gamma_index);
+        if (is_samsung_s6e3fa3_panel){
+            mdss_dsi_start_timer(pdata);
+        }
+    }
+#else
 	if (ctrl->on_cmds.cmd_cnt)
-		mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
+	    mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
+#endif
+#ifdef VENDOR_EDIT
+/* Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+    if (!is_samsung_s6e3fa3_panel){
+	    set_backlight_pwm(1);
+	}
+	if(cabc_mode != CABC_HIGH_MODE){
+		set_cabc_resume_mode(cabc_mode);
+	}
+	if(acl_mode != ACL_LEVEL_1){
+		set_acl_resume_mode(acl_mode);
+	}
+	mutex_lock(&cabc_mutex);
+	flag_lcd_off = false;
+	mutex_unlock(&cabc_mutex);
+#endif /*VENDOR_EDIT*/
 
+#ifdef VENDOR_EDIT
+/* Mobile Phone Software Dept.Driver, 2014/02/25  Add for ESD test */
+#ifdef ESD_TE_CHECK_ON
+	if(get_boot_mode() != MSM_BOOT_MODE__FACTORY){
+		if(first_run_reset==1 && !cont_splash_flag){
+			first_run_reset=0;
+		}
+		else{
+			schedule_delayed_work(&techeck_work, msecs_to_jiffies(5000));
+		}
+	}
+#endif
+#endif /*VENDOR_EDIT*/
 	pr_debug("%s:-\n", __func__);
 	return 0;
 }
@@ -444,17 +1104,35 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
-
+#ifdef VENDOR_EDIT
+	mutex_lock(&cabc_mutex);
+	flag_lcd_off = true;
+	mutex_unlock(&cabc_mutex);
+#endif
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
 	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
-
+#ifdef VENDOR_EDIT
+/* Mobile Phone Software Dept.Driver, 2014/02/25  Add for ESD test */
+#ifdef ESD_TE_CHECK_ON
+	if(get_boot_mode() != MSM_BOOT_MODE__FACTORY){
+		cancel_delayed_work_sync(&techeck_work);
+	}
+#endif
+#endif /*VENDOR_EDIT*/
 	mipi  = &pdata->panel_info.mipi;
-
-	if (ctrl->off_cmds.cmd_cnt)
+#ifdef VENDOR_EDIT
+	if (ctrl->off_cmds.cmd_cnt){
+	    if (is_samsung_s6e3fa3_panel){
+            mdss_dsi_stop_timer(pdata);
+        }
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
-
+	}
+#else
+	if (ctrl->off_cmds.cmd_cnt)
+        mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
+#endif
 	pr_debug("%s:-\n", __func__);
 	return 0;
 }
@@ -1227,6 +1905,30 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
 		"qcom,mdss-dsi-off-command", "qcom,mdss-dsi-off-command-state");
 
+
+#ifdef VENDOR_EDIT
+/* Mobile Phone Software Dept.Driver, 2014/02/17  Add for set cabc */
+    if (is_samsung_s6e3fa3_panel){
+    }else{
+	mdss_dsi_parse_dcs_cmds(np, &cabc_off_sequence,
+		"qcom,mdss-dsi-cabc-off-command", "qcom,mdss-dsi-off-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &cabc_user_interface_image_sequence,
+		"qcom,mdss-dsi-cabc-ui-command", "qcom,mdss-dsi-off-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &cabc_still_image_sequence,
+		"qcom,mdss-dsi-cabc-still-image-command", "qcom,mdss-dsi-off-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &cabc_video_image_sequence,
+		"qcom,mdss-dsi-cabc-video-command", "qcom,mdss-dsi-off-command-state");
+
+        mdss_dsi_parse_dcs_cmds(np, &gamma1,
+            "qcom,mdss-dsi-gamma1", "qcom,mdss-dsi-off-command-state");
+        mdss_dsi_parse_dcs_cmds(np, &gamma2,
+            "qcom,mdss-dsi-gamma2", "qcom,mdss-dsi-off-command-state");
+        mdss_dsi_parse_dcs_cmds(np, &gamma3,
+            "qcom,mdss-dsi-gamma3", "qcom,mdss-dsi-off-command-state");
+        mdss_dsi_parse_dcs_cmds(np, &gamma4,
+            "qcom,mdss-dsi-gamma4", "qcom,mdss-dsi-off-command-state");
+    }
+#endif /*VENDOR_EDIT*/
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->status_cmds,
 			"qcom,mdss-dsi-panel-status-command",
 				"qcom,mdss-dsi-panel-status-command-state");
@@ -1266,11 +1968,24 @@ int mdss_dsi_panel_init(struct device_node *node,
 	static const char *panel_name;
 	struct mdss_panel_info *pinfo;
 
+#ifdef VENDOR_EDIT
+	bool cont_splash_enabled;
+	/* 2013-10-24 Add begin for panel info */
+	static const char *panel_manufacture;
+	static const char *panel_version;
+	/* 2013-10-24 Add end */
+#endif
 	if (!node || !ctrl_pdata) {
 		pr_err("%s: Invalid arguments\n", __func__);
 		return -ENODEV;
 	}
 
+#ifdef VENDOR_EDIT
+	/* Mobile Phone Software Dept.Driver, 2014/02/17  Add*/
+    if (first_run_init == 1){
+		panel_data = ctrl_pdata;
+	}
+#endif /*VENDOR_EDIT*/
 	pinfo = &ctrl_pdata->panel_data.panel_info;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
@@ -1281,6 +1996,61 @@ int mdss_dsi_panel_init(struct device_node *node,
 	else
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 
+#ifdef VENDOR_EDIT
+	/* 2013-10-24 Add begin for panel info */
+		/*it just need to do one time*/
+	if (first_run_init == 1){
+		panel_manufacture = of_get_property(node, "qcom,mdss-dsi-panel-manufacture", NULL);
+		if (!panel_manufacture)
+			pr_info("%s:%d, panel manufacture not specified\n", __func__, __LINE__);
+		else
+			pr_info("%s: Panel Manufacture = %s\n", __func__, panel_manufacture);
+		panel_version = of_get_property(node, "qcom,mdss-dsi-panel-version", NULL);
+		if (!panel_version)
+			pr_info("%s:%d, panel version not specified\n", __func__, __LINE__);
+		else
+			pr_info("%s: Panel Version = %s\n", __func__, panel_version);
+		register_device_proc("lcd", (char *)panel_version, (char *)panel_manufacture);
+		push_component_info(LCD, (char *)panel_version, (char *)panel_manufacture);
+	    if(strstr(panel_version, "S6E3FA3")){
+		    register_device_proc("backlight", (char *)panel_version, (char *)panel_manufacture);
+		    push_component_info(BACKLIGHT, (char *)panel_version, (char *)panel_manufacture);
+		    is_samsung_s6e3fa3_panel = 1;
+	    }
+	}
+	/* 2013-10-24 Add end */
+#endif
+#ifdef VENDOR_EDIT
+	/* Mobile Phone Software Dept.Driver, 2014/02/22  Add for ESD test*/
+		if (first_run_init==1 && get_boot_mode() != MSM_BOOT_MODE__FACTORY){
+			first_run_init=0;
+    #ifdef ESD_TE_CHECK_ON
+            init_completion(&te_comp);
+			irq = gpio_to_irq(LCD_TE_GPIO); //gpio 28 has configed in mdss_dsi.c
+			rc = request_threaded_irq(irq, NULL, TE_irq_thread_fn,
+				IRQF_TRIGGER_RISING, "LCD_TE",NULL);
+			if (rc < 0) {
+				pr_err("Unable to register IRQ handler\n");
+				return -ENODEV;
+			}
+			disable_irq(irq);
+			INIT_DELAYED_WORK(&techeck_work, techeck_work_func );
+			schedule_delayed_work(&techeck_work, msecs_to_jiffies(20000));
+
+			display_switch.name = "dispswitch";
+			rc = switch_dev_register(&display_switch);
+			if (rc)
+			{
+				pr_err("Unable to register display switch device\n");
+				return rc;
+			}
+			/*dir: /sys/class/mdss_lcd/lcd_control*/
+			mdss_lcd = class_create(THIS_MODULE,"mdss_lcd");
+			mdss_lcd->dev_attrs = mdss_lcd_attrs;
+			device_create(mdss_lcd,dev_lcd,0,NULL,"lcd_control");
+	#endif
+        }
+#endif /*VENDOR_EDIT*/
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);
@@ -1289,6 +2059,26 @@ int mdss_dsi_panel_init(struct device_node *node,
 
 	if (!cmd_cfg_cont_splash)
 		pinfo->cont_splash_enabled = false;
+	/* 2013-12-09 Add begin for disable continous display for ftm, rf, wlan mode */
+#ifdef VENDOR_EDIT
+	if (cmd_cfg_cont_splash)
+		cont_splash_enabled = of_property_read_bool(node,
+				"qcom,cont-splash-enabled");
+	else
+		cont_splash_enabled = false;
+
+		if ((MSM_BOOT_MODE__FACTORY == get_boot_mode()) ||
+			(MSM_BOOT_MODE__RF == get_boot_mode()) ||
+			(MSM_BOOT_MODE__WLAN == get_boot_mode()) ||
+			(MSM_BOOT_MODE__MOS == get_boot_mode())) {
+			cont_splash_enabled = false;
+		}
+#endif
+	/* 2013-12-09 Add end */
+#ifdef VENDOR_EDIT
+	/* Mobile Phone Software Dept.Driver, 2014/02/25  Add for ESD test */
+		cont_splash_flag = cont_splash_enabled;
+#endif /*VENDOR_EDIT*/
 	pr_info("%s: Continuous splash %s", __func__,
 		pinfo->cont_splash_enabled ? "enabled" : "disabled");
 
@@ -1299,6 +2089,15 @@ int mdss_dsi_panel_init(struct device_node *node,
 	ctrl_pdata->off = mdss_dsi_panel_off;
 	ctrl_pdata->panel_data.set_backlight = mdss_dsi_panel_bl_ctrl;
 	ctrl_pdata->switch_mode = mdss_dsi_panel_switch_mode;
+
+#ifdef VENDOR_EDIT
+	ctrl_pdata->delay_timer.function = mdss_dsi_timer_cb;
+	ctrl_pdata->delay_timer.data = (unsigned long)ctrl_pdata;
+	ctrl_pdata->wait_timeout= mdss_dsi_wait_timeout;
+	atomic_set(&ctrl_pdata->delay_pending, 0);
+	init_timer(&ctrl_pdata->delay_timer);
+	init_waitqueue_head(&ctrl_pdata->delay_wait_q);
+#endif
 
 	return 0;
 }

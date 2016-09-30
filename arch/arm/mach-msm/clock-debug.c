@@ -596,7 +596,7 @@ out:
 	mutex_unlock(&clk_debug_lock);
 	return ret;
 }
-
+bool dump_clk_enabled;
 /*
  * Print the names of enabled clocks and their parents if debug_suspend is set
  */
@@ -604,6 +604,6 @@ void clock_debug_print_enabled(void)
 {
 	if (likely(!debug_suspend))
 		return;
-
-	clock_debug_print_enabled_clocks(NULL);
+    if(dump_clk_enabled)
+	     clock_debug_print_enabled_clocks(NULL);
 }

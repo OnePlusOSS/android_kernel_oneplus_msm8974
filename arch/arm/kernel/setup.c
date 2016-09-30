@@ -56,6 +56,11 @@
 #include <asm/unwind.h>
 #include <asm/memblock.h>
 
+#ifdef CONFIG_VENDOR_EDIT_OP_LASTKMSG
+/* add by yangrujin@bsp 2015/9/2, support last_kmsg feature */
+#include <linux/persistent_ram.h>
+#endif
+
 #if defined(CONFIG_DEPRECATED_PARAM_STRUCT)
 #include "compat.h"
 #endif
@@ -856,6 +861,36 @@ static void __init reserve_crashkernel(void)
 }
 #else
 static inline void reserve_crashkernel(void) {}
+
+#ifdef CONFIG_VENDOR_EDIT_OP_LASTKMSG
+/* add by yangrujin@bsp 2015/9/2, support last_kmsg feature */
+
+struct persistent_ram_descriptor ram_console_desc = {
+	.name = "qcom,ram-console.40",
+	.size = 0x20000,
+};
+struct persistent_ram ram_console_ram = {
+	.start = 0xFF20000,
+	.size = 0x20000,
+	.num_descs = 1,
+	.descs = &ram_console_desc,
+};
+
+static void __init reserve_crashkernel_1(void)
+{
+	int ret;
+	ret = reserve_bootmem(ram_console_ram.start, ram_console_ram.size, BOOTMEM_EXCLUSIVE);
+	if (ret < 0) {
+		printk("crashkernel reservation failed - memory is in use (0x%lx)\n", (unsigned long)ram_console_ram.start);
+		return;
+	}
+	persistent_ram_early_init(&ram_console_ram);
+	printk("Reserve memory base (0x%lx); size (0x%lx) \r\n", (unsigned long)ram_console_ram.start, (unsigned long)ram_console_ram.size);
+	return;
+
+}
+#endif /* CONFIG_VENDOR_EDIT_OP_LSATKMSG */
+
 #endif /* CONFIG_KEXEC */
 
 static void __init squash_mem_tags(struct tag *tag)
@@ -986,7 +1021,10 @@ void __init setup_arch(char **cmdline_p)
 	}
 #endif
 	reserve_crashkernel();
-
+#ifdef CONFIG_VENDOR_EDIT_OP_LASTKMSG
+/* add by yangrujin@bsp 2015/9/2, support last_kmsg feature */
+	reserve_crashkernel_1();
+#endif
 	tcm_init();
 
 #ifdef CONFIG_MULTI_IRQ_HANDLER

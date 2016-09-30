@@ -154,4 +154,13 @@ source "drivers/bif/Kconfig"
 
 source "drivers/sensors/Kconfig"
 
+#ifdef VENDOR_EDIT
+# hefaxi@filesystem,2015/05/05,support param partion read/write
+source "drivers/param_read_write/Kconfig"
+#endif
+
+#ifdef VENDOR_EDIT
+#hefaxi@filesystems, 2015/07/03, add for force dump function
+source "drivers/oem_debug/Kconfig"
+#endif
 endmenu

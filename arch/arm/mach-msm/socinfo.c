@@ -183,6 +183,15 @@ struct socinfo_v9 {
 	/* only valid when format==9*/
 	uint32_t foundry_id;
 };
+/* add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+struct socinfo_v900 {
+	char hw_pcb_version[10];
+};
+struct socinfo_v100 {
+	char hw_rf_version[10];
+};
+#endif
 
 static union {
 	struct socinfo_v1 v1;
@@ -194,6 +203,11 @@ static union {
 	struct socinfo_v7 v7;
 	struct socinfo_v8 v8;
 	struct socinfo_v9 v9;
+/*add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+	struct socinfo_v900 v900;
+	struct socinfo_v100 v100;
+#endif
 } *socinfo;
 
 static struct msm_soc_info cpu_of_id[] = {
@@ -451,6 +465,116 @@ static struct socinfo_v1 dummy_socinfo = {
 	.version = 1,
 };
 
+/* add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+#include <linux/pcb_version.h>
+char * socinfo_get_hw_pcb_version(void)
+{
+	char *hw_version = "NULL";
+	switch(get_pcb_version()) {
+		case HW_VERSION__10:		
+			hw_version ="10";
+			break;
+		case HW_VERSION__11:
+			hw_version = "11";
+			break;
+		case HW_VERSION__12:
+			hw_version = "12";
+			break;
+		case HW_VERSION__13:
+			hw_version = "13";
+			break;
+		case HW_VERSION__20:		
+			hw_version ="20";
+			break;
+		case HW_VERSION__21:
+			hw_version = "21";
+			break;
+		case HW_VERSION__22:
+			hw_version = "22";
+			break;
+		case HW_VERSION__23:
+			hw_version = "23";
+			break;
+		
+		default:
+			hw_version = "UNKOWN";
+		}
+	
+	return hw_version;
+
+}
+
+char * socinfo_get_hw_rf_version(void)
+{
+	char *rf_version = "NULL";
+	switch(get_rf_version()) {
+		case RF_VERSION__11:		
+			rf_version ="11";
+			break;
+		case RF_VERSION__12:
+			rf_version = "12";
+			break;
+		case RF_VERSION__13:
+			rf_version = "13";
+			break;
+		case RF_VERSION__21:
+			rf_version = "21";
+			break;
+		case RF_VERSION__22:		
+			rf_version ="22";
+			break;
+		case RF_VERSION__23:
+			rf_version = "23";
+			break;
+		case RF_VERSION__31:
+			rf_version = "31";
+			break;
+		case RF_VERSION__32:
+			rf_version = "32";
+			break;
+		case RF_VERSION__33:
+			rf_version = "33";
+			break;
+		case RF_VERSION__44:
+			rf_version = "44";
+			break;
+		case RF_VERSION__66:
+			rf_version = "66";
+			break;
+		case RF_VERSION__67:
+			rf_version = "67";
+			break;
+		case RF_VERSION__76:
+			rf_version = "76";
+			break;
+		case RF_VERSION__77:
+			rf_version = "77";
+			break;
+		case RF_VERSION__87:
+			rf_version = "87";
+			break;
+		case RF_VERSION__88:
+			rf_version = "88";
+			break;
+		case RF_VERSION__89:
+			rf_version = "89";
+			break;
+		case RF_VERSION__98:
+			rf_version = "98";
+			break;
+		case RF_VERSION__99:
+			rf_version = "99";
+			break;
+
+		default:
+			rf_version = "UNKOWN";
+		}
+	
+	return rf_version;
+
+}
+#endif
 uint32_t socinfo_get_id(void)
 {
 	return (socinfo) ? socinfo->v1.id : 0;
@@ -569,6 +693,38 @@ enum msm_cpu socinfo_get_msm_cpu(void)
 	return cur_cpu;
 }
 EXPORT_SYMBOL_GPL(socinfo_get_msm_cpu);
+
+/* add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+static ssize_t
+socinfo_show_hw_pcb_version(struct sys_device *dev,
+		      struct sysdev_attribute *attr,
+		      char *buf)
+{
+	if (!socinfo) {
+		pr_err("%s: No socinfo found!\n", __func__);
+		return 0;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+			socinfo_get_hw_pcb_version());
+}
+
+static ssize_t
+socinfo_show_hw_rf_version(struct sys_device *dev,
+		      struct sysdev_attribute *attr,
+		      char *buf)
+{
+	if (!socinfo) {
+		pr_err("%s: No socinfo found!\n", __func__);
+		return 0;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+			socinfo_get_hw_rf_version());
+}
+#endif
+
 
 static ssize_t
 socinfo_show_id(struct sys_device *dev,
@@ -918,6 +1074,16 @@ msm_get_pmic_die_revision(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n",
 			 socinfo_get_pmic_die_revision());
 }
+
+/* add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+static struct sysdev_attribute socinfo_v900_files[] = {
+	_SYSDEV_ATTR(hw_pcb_version, 0444, socinfo_show_hw_pcb_version, NULL),
+};
+static struct sysdev_attribute socinfo_v100_files[] = {
+	_SYSDEV_ATTR(hw_rf_version, 0444, socinfo_show_hw_rf_version, NULL),
+};
+#endif
 
 static ssize_t
 msm_get_image_version(struct device *dev,
@@ -1325,6 +1491,13 @@ static int __init socinfo_init_sysdev(void)
 		       __func__, err);
 		goto socinfo_init_err;
 	}
+/*add begin for pcb_version in sys/devices/system/soc/soc0*/
+#ifdef CONFIG_VENDOR_EDIT
+	socinfo_create_files(&soc_sys_device, socinfo_v900_files,
+			ARRAY_SIZE(socinfo_v900_files));
+	socinfo_create_files(&soc_sys_device, socinfo_v100_files,
+			ARRAY_SIZE(socinfo_v100_files));
+#endif
 
 	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
 				ARRAY_SIZE(socinfo_v1_files));

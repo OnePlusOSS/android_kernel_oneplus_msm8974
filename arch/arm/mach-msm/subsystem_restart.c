@@ -42,6 +42,12 @@
 
 #include "smd_private.h"
 
+#ifdef CONFIG_VENDOR_EDIT
+/* Add by yangrujin@bsp, 2014/5/19, proc file for restart level */
+
+#include <linux/proc_fs.h>
+#endif /* CONFIG_VENDOR_EDIT */
+
 static int enable_debug;
 module_param(enable_debug, int, S_IRUGO | S_IWUSR);
 
@@ -500,6 +506,88 @@ static struct subsys_device *find_subsys(const char *str)
 			__find_subsys);
 	return dev ? to_subsys(dev) : NULL;
 }
+
+#ifdef CONFIG_VENDOR_EDIT
+/* Add by yangrujin@bsp, 2014/5/19, proc file for restart level */
+
+static int val = 0;
+static struct proc_dir_entry *proc_entry;
+static int proc_restart_level_all_read(char *page, char **start, off_t off, int count, int *eof, void *data)
+{
+	int len = 0;
+	len = sprintf(page, "%d", val);
+	printk("the restart level switch is:%d\n",val);
+	return len;
+}
+
+static int proc_restart_level_all_write(struct file *file, const char __user *buffer,
+			   unsigned long count, void *data)
+{
+	char temp[1] = {0};
+	struct subsys_device *subsys;
+
+	if (copy_from_user(temp, buffer, 1))
+		return -EFAULT;
+
+	sscanf(temp, "%d", &val);
+
+	if (!strncasecmp(&temp[0], "0", 1)) {
+		subsys = find_subsys("adsp");
+		if (!subsys)
+			return ENODEV;
+		subsys->restart_level = RESET_SUBSYS_COUPLED;
+		subsys = find_subsys("modem");
+		if (!subsys)
+			return ENODEV;
+		subsys->restart_level = RESET_SUBSYS_COUPLED;
+		subsys = find_subsys("wcnss");
+		if (!subsys)
+			return ENODEV;
+		subsys->restart_level = RESET_SUBSYS_COUPLED;
+		subsys = find_subsys("venus");
+		if (!subsys)
+			return ENODEV;
+		subsys->restart_level = RESET_SUBSYS_COUPLED;
+	}else if (!strncasecmp(&temp[0], "1", 1)){
+		subsys = find_subsys("adsp");
+		if (!subsys)
+			return ENODEV;
+		subsys->restart_level = RESET_SOC;
+		subsys = find_subsys("modem");
+		if (!subsys)
+			return ENODEV;
+		subsys->restart_level = RESET_SOC;
+		subsys = find_subsys("wcnss");
+		if (!subsys)
+			return ENODEV;
+		subsys->restart_level = RESET_SOC;
+		subsys = find_subsys("venus");
+		if (!subsys)
+			return ENODEV;
+		subsys->restart_level = RESET_SOC;
+	}
+
+	printk("write the restart level switch to :%d\n",val);
+	return count;
+}
+
+static int init_restart_level_all_node( void )
+{
+	int ret = 0;
+
+	proc_entry = create_proc_entry( "restart_level_all", 0644, NULL );
+
+	if (proc_entry == NULL) {
+		printk(KERN_CRIT "fortune: Couldn't create proc entry\n");
+		ret = -ENOMEM;
+	} else {
+	    proc_entry->read_proc = proc_restart_level_all_read;
+            proc_entry->write_proc = proc_restart_level_all_write;
+            printk(KERN_CRIT "fortune: Module loaded.\n");
+        }
+	return ret;
+}
+#endif /* CONFIG_VENDOR_EDIT */
 
 static int subsys_start(struct subsys_device *subsys)
 {
@@ -1287,6 +1375,15 @@ static int __init subsys_restart_init(void)
 	ret = ssr_init_soc_restart_orders();
 	if (ret)
 		goto err_soc;
+
+#ifdef CONFIG_VENDOR_EDIT
+/* Add by yangrujin@bsp, 2014/5/19, proc file for restart level */
+	ret = init_restart_level_all_node();
+	if (ret){
+		printk("The restart level all node init failed.\n");
+	}
+#endif /* CONFIG_VENDOR_EDIT */
+
 	return 0;
 
 err_soc:

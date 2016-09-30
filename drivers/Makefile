@@ -145,3 +145,12 @@ obj-$(CONFIG_CORESIGHT)		+= coresight/
 
 obj-$(CONFIG_BIF)		+= bif/
 obj-$(CONFIG_SENSORS)		+= sensors/
+
+#ifdef VENDOR_EDIT
+# hefaxi@filesystem,2015/05/05,support param partion read/write
+obj-y 	+= param_read_write/
+#endif
+#ifdef VENDOR_EDIT
+#hefaxi@filesystems, 2015/07/03, add for force dump function
+obj-$(CONFIG_OEM_FORCE_DUMP) 	+= oem_debug/
+#endif

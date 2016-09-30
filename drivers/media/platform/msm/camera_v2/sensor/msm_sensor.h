@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/clk.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/of.h>
@@ -29,6 +30,7 @@
 #include <mach/camera2.h>
 #include <media/msm_cam_sensor.h>
 #include <media/v4l2-subdev.h>
+#include <media/v4l2-ioctl.h>
 #include "msm_camera_i2c.h"
 #include "msm_camera_dt_util.h"
 #include "msm_sd.h"
@@ -73,6 +75,8 @@ struct msm_sensor_ctrl_t {
 	uint8_t is_probe_succeed;
 	uint32_t id;
 	struct device_node *of_node;
+	enum msm_camera_stream_type_t camera_stream_type;
+	uint32_t set_mclk_23880000;
 };
 
 int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp);
@@ -86,8 +90,7 @@ int msm_sensor_check_id(struct msm_sensor_ctrl_t *s_ctrl);
 int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl);
 
 int32_t msm_sensor_platform_probe(struct platform_device *pdev,
-	void *data);
-
+	const void *data);
 int msm_sensor_update_cfg(struct msm_sensor_ctrl_t *s_ctrl);
 
 int msm_sensor_i2c_probe(struct i2c_client *client,

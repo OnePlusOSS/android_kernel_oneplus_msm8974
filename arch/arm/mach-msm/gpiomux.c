@@ -25,6 +25,11 @@ static DEFINE_SPINLOCK(gpiomux_lock);
 static struct msm_gpiomux_rec *msm_gpiomux_recs;
 static struct gpiomux_setting *msm_gpiomux_sets;
 static unsigned msm_gpiomux_ngpio;
+#ifdef VENDOR_EDIT
+/*wangdongdong@OnePlus.MultiMediaService:Audio,2015/05/26,add for different from 14001 to 15055*/
+static int is_smartpa_project = 0;
+extern int get_smartpa_project(void);
+#endif
 
 static int msm_gpiomux_store(unsigned gpio, enum msm_gpiomux_setting which,
 	struct gpiomux_setting *setting, struct gpiomux_setting *old_setting)
@@ -127,6 +132,13 @@ int msm_tlmm_misc_reg_read(enum msm_tlmm_misc_reg misc_reg)
 {
 	return readl_relaxed(MSM_TLMM_BASE + misc_reg);
 }
+#ifdef VENDOR_EDIT
+/*wangdongdong@OnePlus.MultiMediaService:Audio,2015/05/26,add for different from 14001 to 15055*/
+int get_smartpa_project(void)
+{
+	return is_smartpa_project;
+}
+#endif
 
 void msm_tlmm_misc_reg_write(enum msm_tlmm_misc_reg misc_reg, int val)
 {
@@ -215,6 +227,11 @@ int msm_gpiomux_init_dt(void)
 				, __func__, rc);
 		return rc;
 	}
+	#ifdef VENDOR_EDIT
+	/*wangdongdong@OnePlus.MultiMediaService:Audio,2015/05/26,add for different from 14001 to 15055*/
+	rc = of_property_read_u32(of_gpio_node, "qcom,smartpa-flags",&is_smartpa_project);
+	pr_err("wdd add qcom,smartpa-flags %d rc %d\n",is_smartpa_project,rc);
+	#endif
 
 	return msm_gpiomux_init(ngpio);
 }

@@ -15,6 +15,7 @@ ifneq ($(MACHINE),)
 include $(srctree)/$(MACHINE)/Makefile.boot
 endif
 
+
 # Note: the following conditions must always be true:
 #   ZRELADDR == virt_to_phys(PAGE_OFFSET + TEXT_OFFSET)
 #   PARAMS_PHYS must be within 4MB of ZRELADDR
@@ -24,6 +25,7 @@ PARAMS_PHYS := $(params_phys-y)
 INITRD_PHYS := $(initrd_phys-y)
 
 export ZRELADDR INITRD_PHYS PARAMS_PHYS
+
 
 targets := Image zImage xipImage bootpImage uImage
 
@@ -72,9 +74,25 @@ endif
 targets += $(DTB_LIST)
 
 # Rule to build device tree blobs
-$(obj)/%.dtb: $(src)/dts/%.dts FORCE
+#VENDOR_EDIT ,shankai@bsp , 2016-5-11,add for dtsi support
+$(obj)/%.dtb: $(src)/dts/project/15055_HW_11/%.dts   FORCE
 	$(call if_changed_dep,dtc)
 
+$(obj)/%.dtb: $(src)/dts/project/15055_HW_12/%.dts   FORCE
+	$(call if_changed_dep,dtc)
+	
+$(obj)/%.dtb: $(src)/dts/project/15055_HW_13/%.dts   FORCE
+	$(call if_changed_dep,dtc)
+
+$(obj)/%.dtb: $(src)/dts/project/15055_HW_14/%.dts   FORCE
+	$(call if_changed_dep,dtc)
+	
+$(obj)/%.dtb: $(src)/dts/project/15055_HW_15/%.dts   FORCE
+	$(call if_changed_dep,dtc)
+
+$(obj)/%.dtb: $(src)/dts/project/14001_HW/%.dts   FORCE
+	$(call if_changed_dep,dtc)
+#endif //VENDOR_EDIT
 $(obj)/dtbs: $(DTB_OBJS)
 
 clean-files := *.dtb

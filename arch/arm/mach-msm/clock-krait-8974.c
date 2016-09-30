@@ -578,6 +578,10 @@ static void krait_update_uv(int *uv, int num, int boost_uv)
 		for (i = 0; i < num; i++)
 			uv[i] = max(1150000, uv[i]);
 	};
+	#ifdef CONFIG_VENDOR_EDIT
+	//boost krait voltage by 50 mV 
+	enable_boost = 1; //CASE ID: 01694672
+	#endif
 
 	if (enable_boost) {
 		for (i = 0; i < num; i++)
@@ -704,8 +708,12 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 			rows = ret;
 		}
 	}
+#ifdef CONFIG_VENDOR_EDIT//CASE ID: 01694672, solve the problem of Kernel NULL pointer
+    krait_update_uv(uv, rows, pvs ? 50000 : 0);
+#else
+    krait_update_uv(uv, rows, pvs ? 25000 : 0);
+#endif
 
-	krait_update_uv(uv, rows, pvs ? 25000 : 0);
 
 	if (clk_init_vdd_class(dev, &krait0_clk.c, rows, freq, uv, ua))
 		return -ENOMEM;
